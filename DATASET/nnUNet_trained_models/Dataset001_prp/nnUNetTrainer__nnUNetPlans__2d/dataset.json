@@ -1,15 +1,3 @@
-{
-    "channel_names": {
-        "0": "R",
-        "1": "G",
-        "2": "B"
-    },
-    "labels": {
-        "background": 0,
-        "forbidden area": 1,
-        "treated area": 2,
-        "available area": 3
-    },
-    "numTraining": 141,
-    "file_ending": ".png"
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:79b1eae80b3326b71daeb1cb15847f0b70fadbe25b63b59a13016fca14734131
+size 268
