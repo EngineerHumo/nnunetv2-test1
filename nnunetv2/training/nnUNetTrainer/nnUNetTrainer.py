@@ -66,6 +66,8 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
+import pdb
+
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
@@ -148,7 +150,7 @@ class nnUNetTrainer(object):
         self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
+        self.num_epochs = 500
         self.current_epoch = 0
         self.enable_deep_supervision = True
 
@@ -672,7 +674,8 @@ class nnUNetTrainer(object):
                                   sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
-        allowed_num_processes = get_allowed_n_proc_DA()
+        allowed_num_processes = get_allowed_n_proc_DA()    ###调试单线程
+        #allowed_num_processes = 8
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
             mt_gen_val = SingleThreadedAugmenter(dl_val, None)
@@ -731,14 +734,14 @@ class nnUNetTrainer(object):
                 synchronize_channels=True
             ), apply_probability=0.1
         ))
-        transforms.append(RandomTransform(
-            GaussianBlurTransform(
-                blur_sigma=(0.5, 1.),
-                synchronize_channels=False,
-                synchronize_axes=False,
-                p_per_channel=0.5, benchmark=True
-            ), apply_probability=0.2
-        ))
+        #transforms.append(RandomTransform(
+        #    GaussianBlurTransform(
+        #        blur_sigma=(0.5, 1.),
+        #        synchronize_channels=False,
+        #        synchronize_axes=False,
+        #        p_per_channel=0.5, benchmark=True
+        #    ), apply_probability=0.2
+        #))
         transforms.append(RandomTransform(
             MultiplicativeBrightnessTransform(
                 multiplier_range=BGContrast((0.75, 1.25)),
@@ -912,7 +915,8 @@ class nnUNetTrainer(object):
             self.dataset_class.unpack_dataset(
                 self.preprocessed_dataset_folder,
                 overwrite_existing=False,
-                num_processes=max(1, round(get_allowed_n_proc_DA() // 2)),
+                num_processes=max(1, round(get_allowed_n_proc_DA() // 2)),   
+                #num_processes = 4,
                 verify=True)
 
         if self.is_ddp:
@@ -986,6 +990,8 @@ class nnUNetTrainer(object):
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            #print(data.shape)
+            #pdb.set_trace()
             output = self.network(data)
             # del data
             l = self.loss(output, target)
@@ -1369,6 +1375,7 @@ class nnUNetTrainer(object):
             train_outputs = []
             for batch_id in range(self.num_iterations_per_epoch):
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
+                #print('batch_id', batch_id)
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
