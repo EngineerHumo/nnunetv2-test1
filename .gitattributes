@@ -1,9 +1,10 @@
 DATASET/** filter=lfs diff=lfs merge=lfs -text
 output/** filter=lfs diff=lfs merge=lfs -text
+*.npz filter=lfs diff=lfs merge=lfs -text
+*.pkl filter=lfs diff=lfs merge=lfs -text
+*.b2nd filter=lfs diff=lfs merge=lfs -text
 DATASET/nnUNet_preprocessed/Dataset001_prp/nnUNetPlans_2d/*.b2nd filter=lfs diff=lfs merge=lfs -text
 *.pth filter=lfs diff=lfs merge=lfs -text
 *.onnx filter=lfs diff=lfs merge=lfs -text
-*.pkl filter=lfs diff=lfs merge=lfs -text
-*.npz filter=lfs diff=lfs merge=lfs -text
 Thumbs.db filter=lfs diff=lfs merge=lfs -text
 * !text !filter !merge !diff
