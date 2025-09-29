@@ -5,7 +5,6 @@ from typing import List, Union, Tuple
 import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
-from dynamic_network_architectures.architectures.unet import PlainConvUNet
 from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
 
 from nnunetv2.configuration import ANISO_THRESHOLD
@@ -19,6 +18,7 @@ from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
+from nnunetv2.training.attention_unet import AttentionUNet
 
 
 class ExperimentPlanner(object):
@@ -48,7 +48,7 @@ class ExperimentPlanner(object):
         self.anisotropy_threshold = ANISO_THRESHOLD
 
         self.UNet_base_num_features = 32
-        self.UNet_class = PlainConvUNet
+        self.UNet_class = AttentionUNet
         # the following two numbers are really arbitrary and were set to reproduce nnU-Net v1's configurations as
         # much as possible
         self.UNet_reference_val_3d = 560000000  # 455600128  550000000
@@ -247,25 +247,26 @@ class ExperimentPlanner(object):
 
         # print(spacing, median_shape, approximate_n_voxels_dataset)
         # find an initial patch size
-        # we first use the spacing to get an aspect ratio
-        tmp = 1 / np.array(spacing)
-
-        # we then upscale it so that it initially is certainly larger than what we need (rescale to have the same
-        # volume as a patch of size 256 ** 3)
-        # this may need to be adapted when using absurdly large GPU memory targets. Increasing this now would not be
-        # ideal because large initial patch sizes increase computation time because more iterations in the while loop
-        # further down may be required.
-        if len(spacing) == 3:
-            initial_patch_size = [round(i) for i in tmp * (256 ** 3 / np.prod(tmp)) ** (1 / 3)]
-        elif len(spacing) == 2:
-            initial_patch_size = [round(i) for i in tmp * (2048 ** 2 / np.prod(tmp)) ** (1 / 2)]
+        if len(spacing) == 2:
+            # fixed 2D patch size requested by user
+            initial_patch_size = np.array([1024, 1024], dtype=int)
         else:
-            raise RuntimeError()
+            tmp = 1 / np.array(spacing)
 
-        # clip initial patch size to median_shape. It makes little sense to have it be larger than that. Note that
-        # this is different from how nnU-Net v1 does it!
-        # todo patch size can still get too large because we pad the patch size to a multiple of 2**n
-        initial_patch_size = np.array([min(i, j) for i, j in zip(initial_patch_size, median_shape[:len(spacing)])])
+            # we then upscale it so that it initially is certainly larger than what we need (rescale to have the same
+            # volume as a patch of size 256 ** 3)
+            # this may need to be adapted when using absurdly large GPU memory targets. Increasing this now would not be
+            # ideal because large initial patch sizes increase computation time because more iterations in the while loop
+            # further down may be required.
+            if len(spacing) == 3:
+                initial_patch_size = [round(i) for i in tmp * (256 ** 3 / np.prod(tmp)) ** (1 / 3)]
+            else:
+                raise RuntimeError()
+
+            # clip initial patch size to median_shape. It makes little sense to have it be larger than that. Note that
+            # this is different from how nnU-Net v1 does it!
+            # todo patch size can still get too large because we pad the patch size to a multiple of 2**n
+            initial_patch_size = np.array([min(i, j) for i, j in zip(initial_patch_size, median_shape[:len(spacing)])])
 
         # use that to get the network topology. Note that this changes the patch_size depending on the number of
         # pooling operations (must be divisible by 2**num_pool in each axis)
@@ -293,6 +294,7 @@ class ExperimentPlanner(object):
                 'dropout_op_kwargs': None,
                 'nonlin': 'torch.nn.LeakyReLU',
                 'nonlin_kwargs': {'inplace': True},
+                'attention_heads': 4,
             },
             '_kw_requires_import': ('conv_op', 'norm_op', 'dropout_op', 'nonlin'),
         }
@@ -429,6 +431,11 @@ class ExperimentPlanner(object):
         new_median_shape = np.median(new_shapes, 0)
         new_median_shape_transposed = new_median_shape[transpose_forward]
 
+        if len(new_median_shape_transposed) >= 3 and new_median_shape_transposed[0] == 1:
+            new_median_shape_transposed[1:] = 1024
+        elif len(new_median_shape_transposed) == 2:
+            new_median_shape_transposed[...] = 1024
+
         approximate_n_voxels_dataset = float(np.prod(new_median_shape_transposed, dtype=np.float64) *
                                              self.dataset_json['numTraining'])
         # only run 3d if this is a 3d dataset
@@ -488,6 +495,8 @@ class ExperimentPlanner(object):
                                                    self.generate_data_identifier('2d'), approximate_n_voxels_dataset,
                                                    _tmp)
         plan_2d['batch_dice'] = True
+        if len(plan_2d['patch_size']) == 2:
+            plan_2d['patch_size'] = [1024, 1024]
 
         print('2D U-Net configuration:')
         print(plan_2d)
