@@ -97,6 +97,7 @@ skip = '.git,*.pdf,*.svg'
 #
 # ignore-words-list = ''
 
-[tool.setuptools]
-# 明确指定包发现规则
-packages = { find = { where = ".", include = ["nnunetv2*"] } }
+[tool.setuptools.packages.find]
+where = ["."]  # 注意这里必须是数组
+include = ["nnunetv2*"]
+exclude = ["DATASET*", "tests*", "test*", "examples*", "build*", "dist*"]
