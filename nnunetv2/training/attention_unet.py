@@ -82,7 +82,7 @@ class AttentionUNet(PlainConvUNet):
             input_channels=bottleneck_channels * 2,
             output_channels=bottleneck_channels,
             kernel_size=self.encoder.kernel_sizes[-1],
-            stride=1,
+            initial_stride=1,
             conv_bias=self.encoder.conv_bias,
             norm_op=self.encoder.norm_op,
             norm_op_kwargs=self.encoder.norm_op_kwargs,
