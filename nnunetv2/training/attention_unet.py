@@ -1,6 +1,8 @@
+from math import prod
 from typing import List, Sequence, Tuple, Union
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 from dynamic_network_architectures.architectures.unet import PlainConvUNet
@@ -10,21 +12,59 @@ from dynamic_network_architectures.building_blocks.plain_conv_encoder import Sta
 class SpatialSelfAttention(nn.Module):
     """Applies multi-head self-attention across spatial positions of a feature map."""
 
-    def __init__(self, channels: int, num_heads: int = 4):
+    def __init__(self, channels: int, num_heads: int = 4, max_tokens: int = 4096):
         super().__init__()
         num_heads = max(1, num_heads)
         self.attention = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, batch_first=True)
         self.norm = nn.LayerNorm(channels)
+        self.max_tokens = max(1, int(max_tokens))
+
+    @staticmethod
+    def _reduced_shape(spatial_dims: Sequence[int], max_tokens: int) -> Tuple[int, ...]:
+        target = list(spatial_dims)
+        while target and prod(target) > max_tokens:
+            largest_axis = max(range(len(target)), key=lambda i: target[i])
+            target[largest_axis] = max(1, (target[largest_axis] + 1) // 2)
+        return tuple(target)
+
+    @staticmethod
+    def _adaptive_pool(x: torch.Tensor, output_size: Tuple[int, ...]) -> torch.Tensor:
+        if len(output_size) == 1:
+            return F.adaptive_avg_pool1d(x, output_size[0])
+        if len(output_size) == 2:
+            return F.adaptive_avg_pool2d(x, output_size)
+        if len(output_size) == 3:
+            return F.adaptive_avg_pool3d(x, output_size)
+        raise ValueError(f"Unsupported tensor rank for adaptive pooling: {x.ndim}")
+
+    @staticmethod
+    def _interpolate(x: torch.Tensor, size: Sequence[int]) -> torch.Tensor:
+        if len(size) == 1:
+            return F.interpolate(x, size=size, mode="linear", align_corners=False)
+        if len(size) == 2:
+            return F.interpolate(x, size=size, mode="bilinear", align_corners=False)
+        if len(size) == 3:
+            return F.interpolate(x, size=size, mode="trilinear", align_corners=False)
+        raise ValueError(f"Unsupported interpolation size: {size}")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.ndim < 3:
             return x
-        b, c = x.shape[:2]
+
         spatial_dims: Sequence[int] = x.shape[2:]
-        flattened = x.view(b, c, -1).permute(0, 2, 1)
+        target_dims = self._reduced_shape(spatial_dims, self.max_tokens)
+
+        pooled = self._adaptive_pool(x, target_dims) if target_dims != tuple(spatial_dims) else x
+
+        b, c = pooled.shape[:2]
+        flattened = pooled.view(b, c, -1).permute(0, 2, 1)
         attended, _ = self.attention(flattened, flattened, flattened, need_weights=False)
         attended = self.norm(attended)
-        attended = attended.permute(0, 2, 1).contiguous().view(b, c, *spatial_dims)
+        attended = attended.permute(0, 2, 1).contiguous().view(b, c, *target_dims)
+
+        if target_dims != tuple(spatial_dims):
+            attended = self._interpolate(attended, spatial_dims)
+
         return attended
 
 
@@ -52,6 +92,7 @@ class AttentionUNet(PlainConvUNet):
         deep_supervision: bool = False,
         nonlin_first: bool = False,
         attention_heads: int = 4,
+        attention_max_tokens: int = 4096,
     ):
         super().__init__(
             input_channels,
@@ -75,7 +116,11 @@ class AttentionUNet(PlainConvUNet):
         )
 
         bottleneck_channels = self.encoder.output_channels[-1]
-        self.attention_block = SpatialSelfAttention(bottleneck_channels, attention_heads)
+        self.attention_block = SpatialSelfAttention(
+            bottleneck_channels,
+            attention_heads,
+            max_tokens=attention_max_tokens,
+        )
         self.attention_fuse = StackedConvBlocks(
             num_convs=1,
             conv_op=self.encoder.conv_op,
