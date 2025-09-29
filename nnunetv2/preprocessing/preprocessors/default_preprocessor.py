@@ -76,6 +76,11 @@ class DefaultPreprocessor(object):
             # in 2d configuration we do not change the spacing between slices
             target_spacing = [original_spacing[0]] + target_spacing
         new_shape = compute_new_shape(data.shape[1:], original_spacing, target_spacing)
+        new_shape = np.array(new_shape, dtype=int)
+        if new_shape.size >= 2:
+            new_shape[-1] = 1024
+            new_shape[-2] = 1024
+        new_shape = tuple(int(i) for i in new_shape)
 
         # normalize
         # normalization MUST happen before resampling or we get huge problems with resampled nonzero masks no
