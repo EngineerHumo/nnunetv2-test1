@@ -166,6 +166,11 @@ class nnUNetTrainer(object):
         self.grad_scaler = GradScaler("cuda") if self.device.type == 'cuda' else None
         self.loss = None  # -> self.initialize
 
+        # cache compile preferences so that we don't re-evaluate the user intent multiple times
+        self._compile_user_setting = None
+        self._compile_user_setting_initialized = False
+        self._compile_decision_cache = None
+
         ### Simple logging. Don't take that away from me!
         # initialize log file. This is just our log for the print statements etc. Not to be confused with lightning
         # logging
@@ -222,9 +227,9 @@ class nnUNetTrainer(object):
                 self.label_manager.num_segmentation_heads,
                 self.enable_deep_supervision
             ).to(self.device)
-            # compile network for free speedup
+            # compile network for free speedup (only when explicitly requested)
             if self._do_i_compile():
-                self.print_to_log_file('Using torch.compile...')
+                self.print_to_log_file('Using torch.compile (expect the first batch to take longer due to compilation).')
                 self.network = torch.compile(self.network)
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
@@ -246,32 +251,130 @@ class nnUNetTrainer(object):
                                "That should not happen.")
 
     def _do_i_compile(self):
-        # new default: compile is enabled!
+        if self._compile_decision_cache is not None:
+            return self._compile_decision_cache
+
+        user_setting = self._get_user_compile_setting()
+
+        # only run torch.compile when explicitly enabled
+        if user_setting is not True:
+            self._compile_decision_cache = False
+            return self._compile_decision_cache
 
         # compile does not work on mps
         if self.device == torch.device('mps'):
-            if 'nnUNet_compile' in os.environ.keys() and os.environ['nnUNet_compile'].lower() in ('true', '1', 't'):
-                self.print_to_log_file("INFO: torch.compile disabled because of unsupported mps device")
-            return False
+            self.print_to_log_file("INFO: torch.compile disabled because of unsupported mps device")
+            self._compile_decision_cache = False
+            return self._compile_decision_cache
 
         # CPU compile crashes for 2D models. Not sure if we even want to support CPU compile!? Better disable
         if self.device == torch.device('cpu'):
-            if 'nnUNet_compile' in os.environ.keys() and os.environ['nnUNet_compile'].lower() in ('true', '1', 't'):
-                self.print_to_log_file("INFO: torch.compile disabled because device is CPU")
-            return False
+            self.print_to_log_file("INFO: torch.compile disabled because device is CPU")
+            self._compile_decision_cache = False
+            return self._compile_decision_cache
 
         # default torch.compile doesn't work on windows because there are apparently no triton wheels for it
         # https://discuss.pytorch.org/t/windows-support-timeline-for-torch-compile/182268/2
         if os.name == 'nt':
-            if 'nnUNet_compile' in os.environ.keys() and os.environ['nnUNet_compile'].lower() in ('true', '1', 't'):
-                self.print_to_log_file("INFO: torch.compile disabled because Windows is not natively supported. If "
-                                       "you know what you are doing, check https://discuss.pytorch.org/t/windows-support-timeline-for-torch-compile/182268/2")
-            return False
+            self.print_to_log_file("INFO: torch.compile disabled because Windows is not natively supported. If "
+                                   "you know what you are doing, check https://discuss.pytorch.org/t/windows-support-timeline-for-torch-compile/182268/2")
+            self._compile_decision_cache = False
+            return self._compile_decision_cache
 
-        if 'nnUNet_compile' not in os.environ.keys():
-            return True
+        self._compile_decision_cache = True
+        return self._compile_decision_cache
+
+    @staticmethod
+    def _string_to_bool(value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, np.integer)):
+            return bool(value)
+        if isinstance(value, str):
+            value_lower = value.lower()
+            if value_lower in ('true', '1', 't', 'yes', 'y', 'on'):
+                return True
+            if value_lower in ('false', '0', 'f', 'no', 'n', 'off'):
+                return False
+        return None
+
+    def _get_user_compile_setting(self):
+        if self._compile_user_setting_initialized:
+            return self._compile_user_setting
+
+        cli_setting = self._get_compile_setting_from_cli()
+        config_setting = self._get_compile_setting_from_configuration()
+        env_setting = self._get_compile_setting_from_environment()
+
+        if cli_setting is not None:
+            self._compile_user_setting = cli_setting
+        elif config_setting is not None:
+            self._compile_user_setting = config_setting
         else:
-            return os.environ['nnUNet_compile'].lower() in ('true', '1', 't')
+            self._compile_user_setting = env_setting
+
+        self._compile_user_setting_initialized = True
+        return self._compile_user_setting
+
+    def _get_compile_setting_from_configuration(self):
+        potential_keys = (
+            'enable_torch_compile',
+            'use_torch_compile',
+            'torch_compile',
+            'enable_compile',
+            'compile',
+        )
+        for key in potential_keys:
+            if key in self.configuration_manager.configuration:
+                interpreted = self._string_to_bool(self.configuration_manager.configuration[key])
+                if interpreted is not None:
+                    return interpreted
+        return None
+
+    def _get_compile_setting_from_cli(self):
+        # inspect sys.argv for compile toggles (support both enable/disable variants)
+        enable_flags = {
+            '--compile',
+            '--torch-compile',
+            '--enable-compile',
+            '--enable_torch_compile',
+            '--enable-torch-compile',
+        }
+        disable_flags = {
+            '--no-compile',
+            '--disable-compile',
+            '--disable_torch_compile',
+            '--disable-torch-compile',
+        }
+
+        args = sys.argv[1:]
+        # iterate in reverse to mimic argparse behaviour for repeated flags
+        for arg in reversed(args):
+            if '=' in arg:
+                flag, value = arg.split('=', 1)
+                if flag in enable_flags or flag in disable_flags:
+                    interpreted = self._string_to_bool(value)
+                    if interpreted is not None:
+                        return interpreted if flag in enable_flags else not interpreted
+            else:
+                if arg in enable_flags:
+                    return True
+                if arg in disable_flags:
+                    return False
+        return None
+
+    def _get_compile_setting_from_environment(self):
+        env_keys = (
+            'nnUNet_compile',
+            'NNUNET_COMPILE',
+            'NNUNET_TORCH_COMPILE',
+        )
+        for key in env_keys:
+            if key in os.environ:
+                interpreted = self._string_to_bool(os.environ[key])
+                if interpreted is not None:
+                    return interpreted
+        return None
 
     def _save_debug_information(self):
         # saving some debug information
