@@ -14,7 +14,7 @@ Residual Encoder UNets have been supported by nnU-Net since our participation in
 This is bound to change with our new nnUNetResEncUNet presets :raised_hands:! Especially on large datasets such as KiTS2023 and AMOS2022 
 they offer improved segmentation performance!
 
-|                        | BTCV  | ACDC  | LiTS  | BraTS | KiTS  | AMOS  |  VRAM |  RT | Arch. | nnU |
+|                        | BTCV  | ACDC  | list  | BraTS | KiTS  | AMOS  |  VRAM |  RT | Arch. | nnU |
 |------------------------|-------|-------|-------|-------|-------|-------|-------|-----|-------|-----|
 |                        | n=30  | n=200 | n=131 | n=1251| n=489 | n=360 |       |     |       |     |
 | nnU-Net (org.) [1]     | 83.08 | 91.54 | 80.09 | 91.24 | 86.04 | 88.64 |  7.70 |  9  |  CNN  | Yes |
