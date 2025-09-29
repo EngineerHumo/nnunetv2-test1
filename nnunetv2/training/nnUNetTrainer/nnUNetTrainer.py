@@ -53,6 +53,7 @@ from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_p
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
+from nnunetv2.training.logging.visdom_logger import VisdomLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
@@ -144,8 +145,8 @@ class nnUNetTrainer(object):
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with
-        self.initial_lr = 1e-2
-        self.weight_decay = 3e-5
+        self.initial_lr = 1e-3
+        self.weight_decay = 1e-2
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 250
@@ -174,6 +175,11 @@ class nnUNetTrainer(object):
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))
         self.logger = nnUNetLogger()
+        self.visdom_logger = VisdomLogger(
+            dataset_name=self.plans_manager.dataset_name,
+            env_suffix=f"{self.configuration_name}_fold{fold}",
+            enable=self.local_rank == 0,
+        )
 
         ### placeholders
         self.dataloader_train = self.dataloader_val = None  # see on_train_start
@@ -507,8 +513,8 @@ class nnUNetTrainer(object):
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                    momentum=0.99, nesterov=True)
+        optimizer = torch.optim.AdamW(self.network.parameters(), lr=self.initial_lr,
+                                      weight_decay=self.weight_decay)
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
         return optimizer, lr_scheduler
 
@@ -973,6 +979,7 @@ class nnUNetTrainer(object):
             f"Current learning rate: {np.round(self.optimizer.param_groups[0]['lr'], decimals=5)}")
         # lrs are the same for all workers so we don't need to gather them in case of DDP training
         self.logger.log('lrs', self.optimizer.param_groups[0]['lr'], self.current_epoch)
+        self.visdom_logger.on_epoch_start(self.current_epoch)
 
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
@@ -993,6 +1000,7 @@ class nnUNetTrainer(object):
             #print(data.shape)
             #pdb.set_trace()
             output = self.network(data)
+            self.visdom_logger.log_training_batch(data, target, output, self.current_epoch)
             # del data
             l = self.loss(output, target)
 
@@ -1039,7 +1047,6 @@ class nnUNetTrainer(object):
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
-            del data
             l = self.loss(output, target)
 
         # we only need the output with the highest output resolution (if DS enabled)
@@ -1058,6 +1065,9 @@ class nnUNetTrainer(object):
             predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
             predicted_segmentation_onehot.scatter_(1, output_seg, 1)
             del output_seg
+
+        self.visdom_logger.log_validation_batch(data, target, predicted_segmentation_onehot, self.current_epoch)
+        del data
 
         if self.label_manager.has_ignore_label:
             if not self.label_manager.has_regions:
