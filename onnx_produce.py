@@ -162,7 +162,23 @@ def export_fold_to_onnx(
     output_file = output_file.with_suffix(".onnx")
     maybe_mkdir_p(str(output_file.parent))
 
+
+
     with torch.no_grad():
+
+
+        torch.onnx.export(
+            network,
+            dummy_input,
+            str(output_file),
+            opset_version=17,
+            dynamo=True,  # 启用新的导出器
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            #dynamic_axes={"input":{0:"batch_size"}, "output":{0:"batch_size"}}
+        )
+        '''
         torch.onnx.export(
             network,
             dummy_input,
@@ -173,6 +189,7 @@ def export_fold_to_onnx(
             dynamic_axes=dynamic_axes_map,
             do_constant_folding=True,
         )
+        '''
 
     print(f"Exported fold {fold} to {output_file}")
 
