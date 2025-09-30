@@ -23,7 +23,7 @@ from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.helpers import empty_cache
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
-
+import pdb  
 
 def _resolve_device(requested: str) -> torch.device:
     """Resolve the torch.device requested by the user."""
@@ -133,7 +133,7 @@ def _make_dummy_input(
     shape = (1, num_input_channels, *spatial_dims)
     return torch.randn(shape, device=device, dtype=dtype)
 
-
+'''
 def export_fold_to_onnx(
     model_dir: str,
     fold: int,
@@ -178,23 +178,53 @@ def export_fold_to_onnx(
             output_names=["output"],
             #dynamic_axes={"input":{0:"batch_size"}, "output":{0:"batch_size"}}
         )
-        '''
-        torch.onnx.export(
-            network,
-            dummy_input,
-            str(output_file),
-            opset_version=opset,
-            input_names=["input"],
-            output_names=["output"],
-            dynamic_axes=dynamic_axes_map,
-            do_constant_folding=True,
-        )
-        '''
+
 
     print(f"Exported fold {fold} to {output_file}")
 
     empty_cache(device)
+'''
+def export_fold_to_onnx(
+    model_dir: str,
+    fold: int,
+    checkpoint_name: str,
+    output_file: Path,
+    device: torch.device,
+    opset: int,
+    use_half_precision: bool,
+) -> None:
+    network, patch_size, num_input_channels = _load_network_from_checkpoint(model_dir, fold, checkpoint_name)
+    
+    # 强制使用固定输入尺寸
+    fixed_input_size = (1, num_input_channels, 1024, 1024)  # 你的固定尺寸
+    
+    network = network.to(device=device)
+    network.eval()
 
+    # 创建固定尺寸的输入
+    dummy_input = torch.randn(fixed_input_size, device=device, dtype=torch.float32)
+
+    output_file = output_file.with_suffix(".onnx")
+    maybe_mkdir_p(str(output_file.parent))
+    #print(opset)
+    #pdb.set_trace()
+    with torch.no_grad():
+        torch.onnx.export(
+            network,
+            dummy_input,
+            str(output_file),
+            export_params=True,
+            opset_version=17,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            # 不使用dynamic_axes，固定所有维度
+            dynamic_axes=None,
+            training=torch.onnx.TrainingMode.EVAL,
+        )
+
+    print(f"Exported fold {fold} to {output_file}")
+    empty_cache(device)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Export trained nnU-Net v2 models to ONNX.")
@@ -265,7 +295,7 @@ def main() -> None:
         if args.skip_existing and output_file.with_suffix(".onnx").is_file():
             print(f"Skipping fold {fold} (ONNX file already exists).")
             continue
-
+        '''
         export_fold_to_onnx(
             model_dir=model_dir,
             fold=fold,
@@ -274,6 +304,17 @@ def main() -> None:
             device=device,
             opset=args.opset,
             dynamic_axes=args.dynamic_axes,
+            use_half_precision=args.half,
+        )
+        '''
+        # 在main函数中调用时，移除dynamic_axes参数
+        export_fold_to_onnx(
+            model_dir=model_dir,
+            fold=fold,
+            checkpoint_name=args.checkpoint,
+            output_file=output_file,
+            device=device,
+            opset=args.opset,
             use_half_precision=args.half,
         )
 
