@@ -1,108 +1,9 @@
-from math import prod, sqrt
+from math import prod
 from typing import List, Sequence, Tuple, Union
 
 import torch
 import torch.nn.functional as F
 from torch import nn
-
-
-class ExportFriendlyMultiheadAttention(nn.MultiheadAttention):
-    """Multi-head attention variant that avoids unsupported ONNX ops.
-
-    PyTorch's ``nn.MultiheadAttention`` dispatches to the fused
-    ``aten._native_multi_head_attention`` operator which currently lacks an
-    ONNX exporter lowering in opset <= 24.  When exporting with the traditional
-    ``torch.onnx.export`` API this results in ``OpRegistrationError`` failures.
-
-    To make the trained checkpoints portable we provide a light-weight
-    re-implementation of the attention computation that relies purely on
-    matrix multiplications and softmax – operators that are universally
-    supported by ONNX.  The module subclasses ``nn.MultiheadAttention`` so that
-    the state dict structure (``in_proj_weight``/``bias`` and the output
-    projection parameters) matches the training checkpoints.
-
-    The implementation covers the subset of features required by the
-    ``SpatialSelfAttention`` block (batch-first inputs, self attention without
-    masks).  If more advanced functionality is requested we fall back to the
-    parent implementation to preserve correctness.
-    """
-
-    def forward(  # type: ignore[override]
-        self,
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
-        key_padding_mask=None,
-        need_weights: bool = True,
-        attn_mask: torch.Tensor | None = None,
-        average_attn_weights: bool = True,
-        is_causal: bool = False,
-    ):
-        if (
-            key_padding_mask is not None
-            or attn_mask is not None
-            or not self._qkv_same_embed_dim
-            or not self.batch_first
-            or is_causal
-        ):
-            # Defer to the upstream implementation when we encounter a setup
-            # that requires features we do not explicitly handle here.
-            return super().forward(
-                query,
-                key,
-                value,
-                key_padding_mask=key_padding_mask,
-                need_weights=need_weights,
-                attn_mask=attn_mask,
-                average_attn_weights=average_attn_weights,
-                is_causal=is_causal,
-            )
-
-        b, seq_len, embed_dim = query.shape
-        head_dim = embed_dim // self.num_heads
-        if embed_dim % self.num_heads != 0:
-            raise ValueError("embed_dim must be divisible by num_heads for attention export")
-
-        # Project query/key/value in a single linear operation to match the
-        # layout used by ``nn.MultiheadAttention``.
-        if self.in_proj_weight is None:
-            raise RuntimeError("in_proj_weight is expected to be defined for self attention")
-
-        q_proj = torch.nn.functional.linear(
-            query,
-            self.in_proj_weight[:embed_dim],
-            None if self.in_proj_bias is None else self.in_proj_bias[:embed_dim],
-        )
-        k_proj = torch.nn.functional.linear(
-            key,
-            self.in_proj_weight[embed_dim : 2 * embed_dim],
-            None if self.in_proj_bias is None else self.in_proj_bias[embed_dim : 2 * embed_dim],
-        )
-        v_proj = torch.nn.functional.linear(
-            value,
-            self.in_proj_weight[2 * embed_dim :],
-            None if self.in_proj_bias is None else self.in_proj_bias[2 * embed_dim :],
-        )
-
-        scale = 1.0 / sqrt(head_dim)
-        q = q_proj.view(b, seq_len, self.num_heads, head_dim).transpose(1, 2) * scale
-        k = k_proj.view(b, seq_len, self.num_heads, head_dim).transpose(1, 2)
-        v = v_proj.view(b, seq_len, self.num_heads, head_dim).transpose(1, 2)
-
-        attn_scores = torch.matmul(q, k.transpose(-2, -1))
-        attn_probs = torch.softmax(attn_scores, dim=-1)
-        attn_output = torch.matmul(attn_probs, v)
-
-        attn_output = attn_output.transpose(1, 2).contiguous().view(b, seq_len, embed_dim)
-        output = torch.nn.functional.linear(attn_output, self.out_proj.weight, self.out_proj.bias)
-
-        if need_weights:
-            weights = attn_probs
-            if average_attn_weights:
-                weights = weights.mean(dim=1)
-            return output, weights
-
-        return output, None
 
 from dynamic_network_architectures.architectures.unet import PlainConvUNet
 from dynamic_network_architectures.building_blocks.plain_conv_encoder import StackedConvBlocks
@@ -114,11 +15,7 @@ class SpatialSelfAttention(nn.Module):
     def __init__(self, channels: int, num_heads: int = 4, max_tokens: int = 4096):
         super().__init__()
         num_heads = max(1, num_heads)
-        self.attention = ExportFriendlyMultiheadAttention(
-            embed_dim=channels,
-            num_heads=num_heads,
-            batch_first=True,
-        )
+        self.attention = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, batch_first=True)
         self.norm = nn.LayerNorm(channels)
         self.max_tokens = max(1, int(max_tokens))
 
