@@ -15,7 +15,19 @@ class SpatialSelfAttention(nn.Module):
     def __init__(self, channels: int, num_heads: int = 4, max_tokens: int = 4096):
         super().__init__()
         num_heads = max(1, num_heads)
-        self.attention = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, batch_first=True)
+        head_dim = channels // num_heads
+        if head_dim * num_heads != channels:
+            raise ValueError(
+                f"channels ({channels}) must be divisible by num_heads ({num_heads}) for attention export"
+            )
+
+        self.num_heads = num_heads
+        self.head_dim = head_dim
+        self.scale = head_dim ** -0.5
+
+        self.qkv_proj = nn.Linear(channels, channels * 3, bias=True)
+        self.out_proj = nn.Linear(channels, channels, bias=True)
+
         self.norm = nn.LayerNorm(channels)
         self.max_tokens = max(1, int(max_tokens))
 
@@ -58,7 +70,26 @@ class SpatialSelfAttention(nn.Module):
 
         b, c = pooled.shape[:2]
         flattened = pooled.view(b, c, -1).permute(0, 2, 1)
-        attended, _ = self.attention(flattened, flattened, flattened, need_weights=False)
+        qkv = self.qkv_proj(flattened)
+        q, k, v = torch.chunk(qkv, 3, dim=-1)
+
+        def reshape_heads(tensor: torch.Tensor) -> torch.Tensor:
+            bsz, seq_len, dim = tensor.shape
+            tensor = tensor.view(bsz, seq_len, self.num_heads, self.head_dim)
+            return tensor.permute(0, 2, 1, 3)
+
+        q = reshape_heads(q)
+        k = reshape_heads(k)
+        v = reshape_heads(v)
+
+        attn_scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+        attn_weights = attn_scores.softmax(dim=-1)
+        attn_output = torch.matmul(attn_weights, v)
+
+        attn_output = attn_output.permute(0, 2, 1, 3).contiguous()
+        attn_output = attn_output.view(flattened.shape[0], flattened.shape[1], -1)
+
+        attended = self.out_proj(attn_output)
         attended = self.norm(attended)
         attended = attended.permute(0, 2, 1).contiguous().view(b, c, *target_dims)
 
