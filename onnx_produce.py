@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence
 
 import torch
+from torch.onnx import DynamicDimension
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, maybe_mkdir_p
 
 import nnunetv2
@@ -151,13 +152,16 @@ def export_fold_to_onnx(
 
     dummy_input = _make_dummy_input(num_input_channels, patch_size, device, target_dtype)
 
-    dynamic_axes_map = None
+    dynamic_shapes_map = None
     if dynamic_axes:
-        # Allow dynamic batch and spatial dimensions
-        axis_template = {0: "batch", 1: "channels"}
+        batch_dim = DynamicDimension("batch")
+        input_dims = {0: batch_dim}
+        output_dims = {0: batch_dim}
         for idx in range(len(patch_size)):
-            axis_template[idx + 2] = f"dim{idx}"
-        dynamic_axes_map = {"input": axis_template, "output": axis_template.copy()}
+            dim = DynamicDimension(f"dim{idx}")
+            input_dims[idx + 2] = dim
+            output_dims[idx + 2] = dim
+        dynamic_shapes_map = {"input": input_dims, "output": output_dims}
 
     output_file = output_file.with_suffix(".onnx")
     maybe_mkdir_p(str(output_file.parent))
@@ -167,29 +171,21 @@ def export_fold_to_onnx(
     with torch.no_grad():
 
 
-        torch.onnx.export(
-            network,
-            dummy_input,
-            str(output_file),
-            opset_version=17,
-            dynamo=True,  # 启用新的导出器
-            do_constant_folding=True,
-            input_names=["input"],
-            output_names=["output"],
-            #dynamic_axes={"input":{0:"batch_size"}, "output":{0:"batch_size"}}
-        )
-        '''
-        torch.onnx.export(
-            network,
-            dummy_input,
-            str(output_file),
+        export_kwargs = dict(
             opset_version=opset,
+            do_constant_folding=True,
             input_names=["input"],
             output_names=["output"],
-            dynamic_axes=dynamic_axes_map,
-            do_constant_folding=True,
         )
-        '''
+        if dynamic_shapes_map is not None:
+            export_kwargs["dynamic_shapes"] = dynamic_shapes_map
+
+        torch.onnx.export(
+            network,
+            dummy_input,
+            str(output_file),
+            **export_kwargs,
+        )
 
     print(f"Exported fold {fold} to {output_file}")
 
