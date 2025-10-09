@@ -88,6 +88,7 @@ class SpatialSelfAttention(nn.Module):
 
         b, c = pooled.shape[:2]
         flattened = pooled.view(b, c, -1).permute(0, 2, 1)
+        dtype = flattened.dtype
         qkv = self.qkv_proj(flattened)
         q, k, v = torch.chunk(qkv, 3, dim=-1)
 
@@ -106,6 +107,8 @@ class SpatialSelfAttention(nn.Module):
 
         attn_output = attn_output.permute(0, 2, 1, 3).contiguous()
         attn_output = attn_output.view(flattened.shape[0], flattened.shape[1], -1)
+
+        attn_output = attn_output.to(dtype)
 
         attended = self.out_proj(attn_output)
         attended = attended.permute(0, 2, 1).contiguous().view(b, c, *target_dims)
