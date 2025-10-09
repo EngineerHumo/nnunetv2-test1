@@ -82,6 +82,7 @@ class SpatialSelfAttention(nn.Module):
 
         b, c = pooled.shape[:2]
         flattened = pooled.view(b, c, -1).permute(0, 2, 1)
+        dtype = flattened.dtype
         qkv = self.qkv_proj(flattened)
         q, k, v = torch.chunk(qkv, 3, dim=-1)
 
@@ -90,16 +91,18 @@ class SpatialSelfAttention(nn.Module):
             tensor = tensor.view(bsz, seq_len, self.num_heads, self.head_dim)
             return tensor.permute(0, 2, 1, 3)
 
-        q = reshape_heads(q)
-        k = reshape_heads(k)
-        v = reshape_heads(v)
+        q = reshape_heads(q).float()
+        k = reshape_heads(k).float()
+        v = reshape_heads(v).float()
 
-        attn_scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
-        attn_weights = attn_scores.softmax(dim=-1)
+        attn_scores = torch.matmul(q, k.transpose(-2, -1)) * float(self.scale)
+        attn_weights = attn_scores.softmax(dim=-1, dtype=torch.float32)
         attn_output = torch.matmul(attn_weights, v)
 
         attn_output = attn_output.permute(0, 2, 1, 3).contiguous()
         attn_output = attn_output.view(flattened.shape[0], flattened.shape[1], -1)
+
+        attn_output = attn_output.to(dtype)
 
         attended = self.out_proj(attn_output)
         attended = attended.permute(0, 2, 1).contiguous().view(b, c, *target_dims)
