@@ -1,0 +1,1090 @@
+{
+    "foreground_mean": {
+        "Dice": 0.0,
+        "FN": 457570.4597701149,
+        "FP": 0.0,
+        "IoU": 0.0,
+        "TN": 1080029.5402298851,
+        "TP": 0.0,
+        "n_pred": 0.0,
+        "n_ref": 457570.4597701149
+    },
+    "mean": {
+        "1": {
+            "Dice": 0.0,
+            "FN": 139218.27586206896,
+            "FP": 0.0,
+            "IoU": 0.0,
+            "TN": 1398381.7241379311,
+            "TP": 0.0,
+            "n_pred": 0.0,
+            "n_ref": 139218.27586206896
+        },
+        "2": {
+            "Dice": 0.0,
+            "FN": 324462.275862069,
+            "FP": 0.0,
+            "IoU": 0.0,
+            "TN": 1213137.7241379311,
+            "TP": 0.0,
+            "n_pred": 0.0,
+            "n_ref": 324462.275862069
+        },
+        "3": {
+            "Dice": 0.0,
+            "FN": 909030.8275862068,
+            "FP": 0.0,
+            "IoU": 0.0,
+            "TN": 628569.1724137932,
+            "TP": 0.0,
+            "n_pred": 0.0,
+            "n_ref": 909030.8275862068
+        }
+    },
+    "metric_per_case": [
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 180001,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1357599,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 180001
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 257099,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1280501,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 257099
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1060472,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 477128,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1060472
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0005.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0005.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 162495,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1375105,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 162495
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 1036671,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 500929,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1036671
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 166819,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1370781,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 166819
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0017.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0017.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 173487,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1364113,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 173487
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 1153992,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 383608,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1153992
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 210121,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1327479,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 210121
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0018.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0018.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 52625,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1484975,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 52625
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 491967,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1045633,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 491967
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 440368,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1097232,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 440368
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0020.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0020.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 141232,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1396368,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 141232
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 637330,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 900270,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 637330
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 693272,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 844328,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 693272
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0025.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0025.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 138039,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1399561,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 138039
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1263333,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 274267,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1263333
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0029.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0029.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 154355,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1383245,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 154355
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 311254,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1226346,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 311254
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 928028,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 609572,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 928028
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0034.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0034.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 231985,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1305615,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 231985
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 336155,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1201445,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 336155
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 722759,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 814841,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 722759
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0046.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0046.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 87382,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1450218,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 87382
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 894314,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 643286,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 894314
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 279297,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1258303,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 279297
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0049.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0049.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 163351,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1374249,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 163351
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1253343,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 284257,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1253343
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0052.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0052.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 122649,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1414951,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 122649
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1252023,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 285577,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1252023
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0061.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0061.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 202152,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1335448,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 202152
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 526774,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1010826,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 526774
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 519017,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1018583,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 519017
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0066.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0066.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 174721,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1362879,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 174721
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 64823,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1472777,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 64823
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1155542,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 382058,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1155542
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0067.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0067.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 114422,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1423178,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 114422
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 307453,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1230147,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 307453
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 793096,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 744504,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 793096
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0068.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0068.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 136813,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1400787,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 136813
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 221547,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1316053,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 221547
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 575659,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 961941,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 575659
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0071.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0071.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 136121,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1401479,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 136121
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1401479,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 136121,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1401479
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0085.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0085.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 123233,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1414367,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 123233
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1414367,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 123233,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1414367
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0087.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0087.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 139075,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1398525,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 139075
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1398525,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 139075,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1398525
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0089.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0089.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 147195,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1390405,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 147195
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1078842,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 458758,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1078842
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0100.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0100.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 140902,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1396698,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 140902
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 448670,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1088930,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 448670
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 948028,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 589572,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 948028
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0103.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0103.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 153208,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1384392,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 153208
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 329262,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1208338,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 329262
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1037909,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 499691,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1037909
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0107.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0107.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 136975,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1400625,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 136975
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 482456,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1055144,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 482456
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 841421,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 696179,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 841421
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0108.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0108.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 151873,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1385727,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 151873
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 698384,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 839216,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 698384
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 468045,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1069555,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 468045
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0110.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0110.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 183244,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1354356,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 183244
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1276291,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 261309,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1276291
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0113.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0113.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 36752,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1500848,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 36752
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 440862,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1096738,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 440862
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 613690,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 923910,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 613690
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0123.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0123.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 120819,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1416781,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 120819
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1416781,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 120819,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1416781
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0124.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0124.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 114477,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1423123,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 114477
+                },
+                "2": {
+                    "Dice": NaN,
+                    "FN": 0,
+                    "FP": 0,
+                    "IoU": NaN,
+                    "TN": 1537600,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 0
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1423123,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 114477,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1423123
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0126.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0126.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 77363,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1460237,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 77363
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 480778,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1056822,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 480778
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 640331,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 897269,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 640331
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0138.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0138.png"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 140384,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1397216,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 140384
+                },
+                "2": {
+                    "Dice": 0.0,
+                    "FN": 289615,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 1247985,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 289615
+                },
+                "3": {
+                    "Dice": 0.0,
+                    "FN": 1089913,
+                    "FP": 0,
+                    "IoU": 0.0,
+                    "TN": 447687,
+                    "TP": 0,
+                    "n_pred": 0,
+                    "n_ref": 1089913
+                }
+            },
+            "prediction_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/fold_0/validation/prp_0139.png",
+            "reference_file": "/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_preprocessed/Dataset001_prp/gt_segmentations/prp_0139.png"
+        }
+    ]
+}
