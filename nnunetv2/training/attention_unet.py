@@ -131,6 +131,14 @@ class SpatialSelfAttention(nn.Module):
         if attended.dtype != orig_dtype:
             attended = attended.to(orig_dtype)
 
+        attended = (attended + identity).contiguous()
+        attended = attended.view(b, c, -1).permute(0, 2, 1)
+        attended = self.norm(attended)
+        attended = attended.permute(0, 2, 1).contiguous().view(b, c, *spatial_dims)
+
+        if attended.dtype != orig_dtype:
+            attended = attended.to(orig_dtype)
+
         return attended
 
 
