@@ -75,10 +75,16 @@ class SpatialSelfAttention(nn.Module):
             return x
 
         spatial_dims: Sequence[int] = x.shape[2:]
-        identity = x
+        orig_dtype = x.dtype
+        work_x = x if x.dtype == torch.float32 else x.to(torch.float32)
+        identity = work_x
         target_dims = self._reduced_shape(spatial_dims, self.max_tokens)
 
-        pooled = self._adaptive_pool(x, target_dims) if target_dims != tuple(spatial_dims) else x
+        pooled = (
+            self._adaptive_pool(work_x, target_dims)
+            if target_dims != tuple(spatial_dims)
+            else work_x
+        )
 
         b, c = pooled.shape[:2]
         flattened = pooled.view(b, c, -1).permute(0, 2, 1)
@@ -91,9 +97,9 @@ class SpatialSelfAttention(nn.Module):
             tensor = tensor.view(bsz, seq_len, self.num_heads, self.head_dim)
             return tensor.permute(0, 2, 1, 3)
 
-        q = reshape_heads(q).float()
-        k = reshape_heads(k).float()
-        v = reshape_heads(v).float()
+        q = reshape_heads(q).to(torch.float32)
+        k = reshape_heads(k).to(torch.float32)
+        v = reshape_heads(v).to(torch.float32)
 
         attn_scores = torch.matmul(q, k.transpose(-2, -1)) * float(self.scale)
         attn_weights = attn_scores.softmax(dim=-1, dtype=torch.float32)
@@ -114,6 +120,9 @@ class SpatialSelfAttention(nn.Module):
         attended = attended.view(b, c, -1).permute(0, 2, 1)
         attended = self.norm(attended)
         attended = attended.permute(0, 2, 1).contiguous().view(b, c, *spatial_dims)
+
+        if attended.dtype != orig_dtype:
+            attended = attended.to(orig_dtype)
 
         return attended
 
