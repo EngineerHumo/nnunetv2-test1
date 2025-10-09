@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from math import prod
 from typing import List, Sequence, Tuple, Union
 
@@ -76,45 +77,59 @@ class SpatialSelfAttention(nn.Module):
 
         spatial_dims: Sequence[int] = x.shape[2:]
         orig_dtype = x.dtype
-        work_x = x if x.dtype == torch.float32 else x.to(torch.float32)
-        identity = work_x
-        target_dims = self._reduced_shape(spatial_dims, self.max_tokens)
+        device_type = "cuda" if x.is_cuda else "cpu"
 
-        pooled = (
-            self._adaptive_pool(work_x, target_dims)
-            if target_dims != tuple(spatial_dims)
-            else work_x
+        autocast_context = (
+            torch.autocast(device_type=device_type, enabled=False)
+            if torch.is_autocast_enabled()
+            else nullcontext()
         )
 
-        b, c = pooled.shape[:2]
-        flattened = pooled.view(b, c, -1).permute(0, 2, 1)
-        dtype = flattened.dtype
-        qkv = self.qkv_proj(flattened)
-        q, k, v = torch.chunk(qkv, 3, dim=-1)
+        with autocast_context:
+            work_x = x if x.dtype == torch.float32 else x.to(torch.float32)
+            identity = work_x
+            target_dims = self._reduced_shape(spatial_dims, self.max_tokens)
 
-        def reshape_heads(tensor: torch.Tensor) -> torch.Tensor:
-            bsz, seq_len, dim = tensor.shape
-            tensor = tensor.view(bsz, seq_len, self.num_heads, self.head_dim)
-            return tensor.permute(0, 2, 1, 3)
+            pooled = (
+                self._adaptive_pool(work_x, target_dims)
+                if target_dims != tuple(spatial_dims)
+                else work_x
+            )
 
-        q = reshape_heads(q).to(torch.float32)
-        k = reshape_heads(k).to(torch.float32)
-        v = reshape_heads(v).to(torch.float32)
+            b, c = pooled.shape[:2]
+            flattened = pooled.view(b, c, -1).permute(0, 2, 1)
+            qkv = self.qkv_proj(flattened)
+            q, k, v = torch.chunk(qkv, 3, dim=-1)
 
-        attn_scores = torch.matmul(q, k.transpose(-2, -1)) * float(self.scale)
-        attn_weights = attn_scores.softmax(dim=-1, dtype=torch.float32)
-        attn_output = torch.matmul(attn_weights, v)
+            def reshape_heads(tensor: torch.Tensor) -> torch.Tensor:
+                bsz, seq_len, dim = tensor.shape
+                tensor = tensor.view(bsz, seq_len, self.num_heads, self.head_dim)
+                return tensor.permute(0, 2, 1, 3)
 
-        attn_output = attn_output.permute(0, 2, 1, 3).contiguous()
-        attn_output = attn_output.view(flattened.shape[0], flattened.shape[1], -1)
+            q = reshape_heads(q).to(torch.float32)
+            k = reshape_heads(k).to(torch.float32)
+            v = reshape_heads(v).to(torch.float32)
 
-        attn_output = attn_output.to(dtype)
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) * float(self.scale)
+            attn_weights = attn_scores.softmax(dim=-1, dtype=torch.float32)
+            attn_output = torch.matmul(attn_weights, v)
 
-        attended = self.out_proj(attn_output)
-        attended = attended.permute(0, 2, 1).contiguous().view(b, c, *target_dims)
+            attn_output = attn_output.permute(0, 2, 1, 3).contiguous()
+            attn_output = attn_output.view(flattened.shape[0], flattened.shape[1], -1)
 
-        if target_dims != tuple(spatial_dims):
-            attended = self._interpolate(attended, spatial_dims)
+            attended = self.out_proj(attn_output)
+            attended = attended.permute(0, 2, 1).contiguous().view(b, c, *target_dims)
+
+            if target_dims != tuple(spatial_dims):
+                attended = self._interpolate(attended, spatial_dims)
+
+            attended = (attended + identity).contiguous()
+            attended = attended.view(b, c, -1).permute(0, 2, 1)
+            attended = self.norm(attended)
+            attended = attended.permute(0, 2, 1).contiguous().view(b, c, *spatial_dims)
+
+        if attended.dtype != orig_dtype:
+            attended = attended.to(orig_dtype)
 
         attended = (attended + identity).contiguous()
         attended = attended.view(b, c, -1).permute(0, 2, 1)
