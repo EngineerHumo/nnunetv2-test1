@@ -240,8 +240,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--checkpoint",
-        default="checkpoint_final.pth",
-        help="Checkpoint file name to export (default: checkpoint_final.pth).",
+        default="checkpoint_best.pth",
+        help="Checkpoint file name to export (default: checkpoint_final/best.pth).",
     )
     parser.add_argument(
         "--output-dir",

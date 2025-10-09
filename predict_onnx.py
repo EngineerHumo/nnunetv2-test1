@@ -1,19 +1,19 @@
-''' 
+
 #####测试版本
 import onnx
 import numpy as np
-onnx_model = onnx.load("/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/onnx_exports/fold_all_checkpoint_final.onnx")
+onnx_model = onnx.load("/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/onnx_exports/fold_0_checkpoint_final.onnx")
 onnx.checker.check_model(onnx_model)
 import onnxruntime as ort
-ort_session = ort.InferenceSession("/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/onnx_exports/fold_all_checkpoint_final.onnx", providers=['CPUExecutionProvider']) # 创建一个推理session
-x = np.random.randn(1,3,1280,1280).astype(np.float32)
+ort_session = ort.InferenceSession("/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/onnx_exports/fold_0_checkpoint_final.onnx", providers=['CPUExecutionProvider']) # 创建一个推理session
+x = np.random.randn(1,3,1024,1024).astype(np.float32)
 print(x.shape)
 ort_inputs = {ort_session.get_inputs()[0].name:x}
 ort_outs = ort_session.run(None, ort_inputs)
 print(ort_outs[0].shape)
+
+
 '''
-
-
 import onnx
 import numpy as np
 import cv2
@@ -137,3 +137,4 @@ if __name__ == "__main__":
     
     # 处理图像
     process_images(input_folder, output_folder, model_path)
+    '''
