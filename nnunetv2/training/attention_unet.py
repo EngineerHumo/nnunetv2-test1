@@ -31,6 +31,17 @@ class SpatialSelfAttention(nn.Module):
         self.norm = nn.LayerNorm(channels)
         self.max_tokens = max(1, int(max_tokens))
 
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        """Initialize projections following nn.MultiheadAttention defaults."""
+        nn.init.xavier_uniform_(self.qkv_proj.weight)
+        nn.init.xavier_uniform_(self.out_proj.weight)
+        if self.qkv_proj.bias is not None:
+            nn.init.zeros_(self.qkv_proj.bias)
+        if self.out_proj.bias is not None:
+            nn.init.zeros_(self.out_proj.bias)
+
     @staticmethod
     def _reduced_shape(spatial_dims: Sequence[int], max_tokens: int) -> Tuple[int, ...]:
         target = list(spatial_dims)
@@ -64,6 +75,7 @@ class SpatialSelfAttention(nn.Module):
             return x
 
         spatial_dims: Sequence[int] = x.shape[2:]
+        identity = x
         target_dims = self._reduced_shape(spatial_dims, self.max_tokens)
 
         pooled = self._adaptive_pool(x, target_dims) if target_dims != tuple(spatial_dims) else x
@@ -90,11 +102,15 @@ class SpatialSelfAttention(nn.Module):
         attn_output = attn_output.view(flattened.shape[0], flattened.shape[1], -1)
 
         attended = self.out_proj(attn_output)
-        attended = self.norm(attended)
         attended = attended.permute(0, 2, 1).contiguous().view(b, c, *target_dims)
 
         if target_dims != tuple(spatial_dims):
             attended = self._interpolate(attended, spatial_dims)
+
+        attended = (attended + identity).contiguous()
+        attended = attended.view(b, c, -1).permute(0, 2, 1)
+        attended = self.norm(attended)
+        attended = attended.permute(0, 2, 1).contiguous().view(b, c, *spatial_dims)
 
         return attended
 
