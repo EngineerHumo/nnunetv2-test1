@@ -109,8 +109,8 @@ ENV/
 *.pdf
 *.png
 *.jpg
+*.pth
 *.jpeg
-
-*.model
+*.onnx
 
 !documentation/assets/scribble_example.png
