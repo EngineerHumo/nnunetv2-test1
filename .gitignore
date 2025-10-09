@@ -98,19 +98,14 @@ ENV/
 .idea
 *.txt
 .idea/*
-*.png
-# *.nii.gz  # nifti files needed for example_data for github actions tests
+*.nii.gz  # nifti files needed for example_data for github actions tests
 *.nii
 *.tif
 *.bmp
 *.pkl
 *.xml
-*.pkl
 *.pdf
-*.png
-*.jpg
 *.pth
-*.jpeg
 *.onnx
 
 !documentation/assets/scribble_example.png
