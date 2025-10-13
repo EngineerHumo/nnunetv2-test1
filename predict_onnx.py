@@ -2,10 +2,10 @@
 #####测试版本
 import onnx
 import numpy as np
-onnx_model = onnx.load("/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/onnx_exports/fold_0_checkpoint_final.onnx")
+onnx_model = onnx.load("/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/onnx_exports/fold_0_checkpoint_best.onnx")
 onnx.checker.check_model(onnx_model)
 import onnxruntime as ort
-ort_session = ort.InferenceSession("/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/onnx_exports/fold_0_checkpoint_final.onnx", providers=['CPUExecutionProvider']) # 创建一个推理session
+ort_session = ort.InferenceSession("/home/wensheng/gjq_workspace/nnUNet/DATASET/nnUNet_trained_models/Dataset001_prp/nnUNetTrainer__nnUNetPlans__2d/onnx_exports/fold_0_checkpoint_best.onnx", providers=['CPUExecutionProvider']) # 创建一个推理session
 x = np.random.randn(1,3,1024,1024).astype(np.float32)
 print(x.shape)
 ort_inputs = {ort_session.get_inputs()[0].name:x}
