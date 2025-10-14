@@ -204,56 +204,102 @@ def opening_and_refill(labels: np.ndarray, value: int, radius: int = 4) -> None:
 
 
 def area_preserving_rethreshold(labels: np.ndarray) -> None:
-    """在黄绿窄带内执行面积守恒的高斯重阈值。"""
+    """在黄绿窄带内执行面积守恒的高斯重阈值，仅调整黄绿边界。"""
 
+    original_black = labels == 0
+    original_red = labels == 3
     yellow_mask = labels == 2
     green_mask = labels == 1
-    movable = yellow_mask | green_mask
+    yellow_green = yellow_mask | green_mask
+    if not np.any(yellow_green):
+        return
+
+    protect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    protected = cv2.dilate((original_black | original_red).astype(np.uint8), protect_kernel).astype(bool)
+    movable = yellow_green & ~protected
     if not np.any(movable):
+        labels[original_black] = 0
+        labels[original_red] = 3
         return
 
     kernel_band = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
     dilated_y = cv2.dilate(yellow_mask.astype(np.uint8), kernel_band).astype(bool)
     dilated_g = cv2.dilate(green_mask.astype(np.uint8), kernel_band).astype(bool)
-    band = movable & (dilated_y & dilated_g)
+    band = movable & dilated_y & dilated_g
     if not np.any(band):
         band = movable
 
     yellow_fixed = yellow_mask & ~band
-    yellow_to_allocate = int(np.sum(yellow_mask)) - int(np.sum(yellow_fixed))
+    yellow_target = int(np.sum(yellow_mask))
+    yellow_to_allocate = yellow_target - int(np.sum(yellow_fixed))
     if yellow_to_allocate <= 0:
         labels[band] = 1
         labels[yellow_fixed] = 2
+        labels[original_black] = 0
+        labels[original_red] = 3
         return
-    if yellow_to_allocate >= int(np.sum(band)):
+
+    band_size = int(np.sum(band))
+    if yellow_to_allocate >= band_size:
         labels[band] = 2
+        labels[yellow_fixed] = 2
+        labels[original_black] = 0
+        labels[original_red] = 3
         return
 
     blur = cv2.GaussianBlur(
         yellow_mask.astype(np.float32),
         (0, 0),
-        sigmaX=7.0,
-        sigmaY=7.0,
+        sigmaX=12.0,
+        sigmaY=12.0,
         borderType=cv2.BORDER_REPLICATE,
     )
     values = blur[band]
     flat_band_indices = np.flatnonzero(band)
-    selected = np.zeros(len(flat_band_indices), dtype=bool)
+
     partition_index = len(values) - yellow_to_allocate
     threshold_value = np.partition(values, partition_index)[partition_index]
     larger = values > threshold_value
-    selected[larger] = True
-    remaining = yellow_to_allocate - int(np.sum(larger))
-    if remaining > 0:
-        equals = np.where(values == threshold_value)[0]
-        chosen = equals[:remaining]
-        selected[chosen] = True
-    new_yellow_mask = np.zeros_like(movable, dtype=bool)
-    new_yellow_mask.flat[flat_band_indices[selected]] = True
+    selected_count = int(np.sum(larger))
+
+    equals = np.where(values == threshold_value)[0]
+    need = yellow_to_allocate - selected_count
+    if need > 0:
+        tie_indices = equals[:need]
+    else:
+        tie_indices = np.array([], dtype=int)
+
+    new_yellow_mask = np.zeros_like(yellow_mask, dtype=bool)
+    if selected_count > 0:
+        selected_idx = np.flatnonzero(larger)
+        new_yellow_mask.flat[flat_band_indices[selected_idx]] = True
+    if need > 0:
+        new_yellow_mask.flat[flat_band_indices[tie_indices]] = True
 
     labels[band] = 1
     labels[new_yellow_mask] = 2
     labels[yellow_fixed] = 2
+    labels[original_black] = 0
+    labels[original_red] = 3
+
+
+def clean_yellow_components(labels: np.ndarray) -> None:
+    """移除过小的黄色连通域，并依邻域颜色填补。"""
+
+    yellow_mask = labels == 2
+    total = int(np.sum(yellow_mask))
+    if total == 0:
+        return
+
+    threshold = max(int(total * 0.1), 1)
+    num, comp = connected_components(yellow_mask)
+    if num <= 1:
+        return
+
+    for idx in range(1, num):
+        component_mask = comp == idx
+        if int(np.sum(component_mask)) < threshold:
+            replace_component_with_neighbors(labels, component_mask, 2)
 
 
 def process_label(labels: np.ndarray) -> np.ndarray:
@@ -268,6 +314,7 @@ def process_label(labels: np.ndarray) -> np.ndarray:
     opening_and_refill(labels, 1, radius=4)
     opening_and_refill(labels, 2, radius=4)
     area_preserving_rethreshold(labels)
+    clean_yellow_components(labels)
     return labels
 
 
