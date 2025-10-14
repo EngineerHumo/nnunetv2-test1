@@ -302,6 +302,22 @@ def clean_yellow_components(labels: np.ndarray) -> None:
             replace_component_with_neighbors(labels, component_mask, 2)
 
 
+def remove_small_components(labels: np.ndarray, min_size: int) -> None:
+    """移除所有小于给定面积阈值的连通域，并依邻域颜色重赋值。"""
+
+    for value in range(4):
+        mask = labels == value
+        if not np.any(mask):
+            continue
+        num, comp = connected_components(mask)
+        if num <= 1:
+            continue
+        for idx in range(1, num):
+            component_mask = comp == idx
+            if int(np.sum(component_mask)) < min_size:
+                replace_component_with_neighbors(labels, component_mask, value)
+
+
 def process_label(labels: np.ndarray) -> np.ndarray:
     """对单张标签图执行完整的后处理流程。"""
 
@@ -315,6 +331,7 @@ def process_label(labels: np.ndarray) -> np.ndarray:
     opening_and_refill(labels, 2, radius=4)
     area_preserving_rethreshold(labels)
     clean_yellow_components(labels)
+    remove_small_components(labels, min_size=1000)
     return labels
 
 
