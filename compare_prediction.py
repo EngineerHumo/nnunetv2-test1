@@ -9,6 +9,13 @@ Precision、Recall 等指标，对模型分割性能进行全面评估。同时�
 在每个 ONNX 文件所在目录下新建文件夹，按“模型名+图像名+fold 信息”
 命名保存彩色 PNG 预测图（0=黑、1=红、2=黄、3=绿），并将每个模型的
 性能指标保存到 CSV 表格中。
+
+运行方式示例::
+
+    python compare_prediction.py \
+        --onnx_dir /path/to/onnx_models \
+        --images_dir /path/to/imagesTs \
+        --labels_dir /path/to/labelsTs
 """
 
 from __future__ import annotations
@@ -60,34 +67,34 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         description="批量评估 ONNX 分割模型，对测试集生成预测并计算多种指标。"
     )
     parser.add_argument(
-        "onnx_dir",
+        "--onnx_dir",
         type=Path,
         help="存放多个 ONNX 文件的目录。",
     )
     parser.add_argument(
-        "images_dir",
+        "--images_dir",
         type=Path,
         help="测试图片所在的 imagesTs 目录。",
     )
     parser.add_argument(
-        "labels_dir",
+        "--labels_dir",
         type=Path,
         help="测试标签所在的 labelsTs 目录。",
     )
     parser.add_argument(
-        "--output-table",
+        "--output_table",
         type=Path,
         default=Path("onnx_metrics.csv"),
         help="保存评估结果的 CSV 文件路径（默认: onnx_metrics.csv）。",
     )
     parser.add_argument(
-        "--image-extensions",
+        "--image_extensions",
         nargs="*",
         default=[".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"],
         help="允许的图像扩展名（默认包含常见格式）。",
     )
     parser.add_argument(
-        "--label-extensions",
+        "--label_extensions",
         nargs="*",
         default=[".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".npy"],
         help="允许的标签扩展名（默认包含常见格式与 .npy）。",
@@ -99,7 +106,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     return parser.parse_args(argv)
 
-
+'''
 def collect_pairs(
     images_dir: Path,
     labels_dir: Path,
@@ -133,7 +140,44 @@ def collect_pairs(
         raise RuntimeError("未能匹配到任何图像-标签对，请检查目录与文件名。")
 
     return pairs
+'''
+def collect_pairs(
+    images_dir: Path,
+    labels_dir: Path,
+    image_exts: Sequence[str],
+    label_exts: Sequence[str],
+) -> List[Tuple[Path, Path]]:
+    image_map: Dict[str, Path] = {}
+    for path in sorted(images_dir.iterdir()):
+        if path.is_file() and path.suffix.lower() in image_exts:
+            # 去掉 _0000 后缀来匹配标签文件名
+            stem = path.stem
+            if stem.endswith('_0000'):
+                stem = stem[:-5]  # 去掉最后5个字符 '_0000'
+            image_map[stem] = path
 
+    label_map: Dict[str, Path] = {}
+    for path in sorted(labels_dir.iterdir()):
+        if path.is_file() and path.suffix.lower() in label_exts:
+            label_map[path.stem] = path
+
+    pairs: List[Tuple[Path, Path]] = []
+    missing_labels: List[str] = []
+    for stem, img_path in image_map.items():
+        label_path = label_map.get(stem)
+        if label_path is None:
+            missing_labels.append(stem)
+            continue
+        pairs.append((img_path, label_path))
+
+    if missing_labels:
+        missing_str = ", ".join(missing_labels)
+        print(f"警告: 下列图像未找到对应标签，将被跳过: {missing_str}")
+
+    if not pairs:
+        raise RuntimeError("未能匹配到任何图像-标签对，请检查目录与文件名。")
+
+    return pairs
 
 def load_image(path: Path, normalize: bool) -> np.ndarray:
     """读取图像并调整为模型输入形状 (1, 3, 1024, 1024)。"""
