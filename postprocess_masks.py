@@ -240,7 +240,7 @@ def area_preserving_rethreshold(labels: np.ndarray) -> None:
         chosen = equals[:remaining]
         selected[chosen] = True
     new_yellow_mask = np.zeros_like(movable, dtype=bool)
-    new_yellow_mask[flat_band_indices[selected]] = True
+    new_yellow_mask.flat[flat_band_indices[selected]] = True
 
     labels[band] = 1
     labels[new_yellow_mask] = 2
