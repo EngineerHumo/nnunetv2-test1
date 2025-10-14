@@ -75,12 +75,28 @@ def _pad_to_shape(image: np.ndarray, target_shape: Sequence[int]) -> Tuple[np.nd
     return padded, (pad_top, pad_bottom, pad_left, pad_right)
 
 
-def _prepare_model_input(image: np.ndarray, target_shape: Sequence[int]) -> Tuple[np.ndarray, Tuple[int, int, int, int]]:
-    """对图像执行填充与归一化以匹配 ONNX 模型输入。"""
+def _prepare_model_input(
+    image: np.ndarray, target_shape: Sequence[int]
+) -> Tuple[np.ndarray, Tuple[int, int, int, int], Tuple[int, int]]:
+    """对图像执行尺寸调整、填充与归一化以匹配 ONNX 模型输入。
 
-    padded, pads = _pad_to_shape(image, target_shape)
+    当原图尺寸超过模型输入尺寸时，先按双线性插值缩放到目标尺寸；当
+    原图较小或与目标尺寸一致时，保持原尺寸并通过 `_pad_to_shape` 做边
+    缘填充。返回模型输入张量、填充信息以及参与推理的图像尺寸。
+    """
+
+    target_h, target_w = target_shape
+    height, width = image.shape[:2]
+
+    if height > target_h or width > target_w:
+        resized = cv2.resize(image, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
+    else:
+        resized = image
+
+    processed_shape = resized.shape[:2]
+    padded, pads = _pad_to_shape(resized, target_shape)
     input_array = padded.transpose(2, 0, 1).astype(np.float32) / 255.0
-    return np.expand_dims(input_array, axis=0), pads
+    return np.expand_dims(input_array, axis=0), pads, processed_shape
 
 
 def _load_sessions(onnx_dir: Path) -> List[ort.InferenceSession]:
@@ -428,8 +444,16 @@ def process_file(
     """执行单张图片的推理与后处理。"""
 
     image = _load_image(image_path)
-    model_input, pads = _prepare_model_input(image, model_input_shape)
-    labels = _infer_labels(sessions, model_input, pads, image.shape[:2])
+    model_input, pads, processed_shape = _prepare_model_input(image, model_input_shape)
+    labels = _infer_labels(sessions, model_input, pads, processed_shape)
+
+    if processed_shape != image.shape[:2]:
+        labels = cv2.resize(
+            labels.astype(np.uint8),
+            (image.shape[1], image.shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+
     processed = process_label(labels)
     save_label_image(output_path, processed)
 
