@@ -25,6 +25,12 @@ COLOR_TO_LABEL = {
     (0, 0, 255): 3,  # 红色
 }
 LABEL_PRIORITY = [0, 1, 2, 3]
+LABEL_TO_COLOR = {
+    0: np.array((0, 0, 0), dtype=np.uint8),
+    1: np.array((0, 255, 0), dtype=np.uint8),
+    2: np.array((0, 255, 255), dtype=np.uint8),
+    3: np.array((0, 0, 255), dtype=np.uint8),
+}
 TARGET_SIZE: Tuple[int, int] = (1240, 1240)
 
 
@@ -51,12 +57,15 @@ def load_label_image(path: Path) -> np.ndarray:
 
 
 def save_label_image(path: Path, labels: np.ndarray) -> None:
-    """按照标签优先级生成单通道图像并保存。"""
+    """按照标签优先级将标签重新映射为彩色 PNG 并保存。"""
 
     h, w = labels.shape
-    output = np.zeros((h, w), dtype=np.uint8)
+    output = np.zeros((h, w, 3), dtype=np.uint8)
     for label in LABEL_PRIORITY:
-        output[labels == label] = label
+        mask = labels == label
+        if not np.any(mask):
+            continue
+        output[mask] = LABEL_TO_COLOR[label]
     resized = cv2.resize(output, TARGET_SIZE, interpolation=cv2.INTER_NEAREST)
     cv2.imwrite(str(path), resized)
 
