@@ -1,3 +1,12 @@
+'''
+运行方式示例::
+
+    python prediction_postprecess.py \
+        --onnx_dir /path/to/onnx_models \
+        --images_dir /path/to/images\ 
+        --output_dir /path/to/output
+'''
+
 from __future__ import annotations
 
 import argparse
@@ -448,14 +457,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model_input_height",
         type=int,
-        default=1280,
-        help="ONNX 模型期望的高度 (默认: 1280)",
+        default=1024,
+        help="ONNX 模型期望的高度 (默认: 1024)",
     )
     parser.add_argument(
         "--model_input_width",
         type=int,
-        default=1280,
-        help="ONNX 模型期望的宽度 (默认: 1280)",
+        default=1024,
+        help="ONNX 模型期望的宽度 (默认: 1024)",
     )
     return parser.parse_args()
 
