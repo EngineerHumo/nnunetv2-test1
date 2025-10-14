@@ -283,6 +283,7 @@ def area_preserving_rethreshold(labels: np.ndarray) -> None:
     labels[original_red] = 3
 
 
+
 def clean_yellow_components(labels: np.ndarray) -> None:
     """移除过小的黄色连通域，并依邻域颜色填补。"""
 
