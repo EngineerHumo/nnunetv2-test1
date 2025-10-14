@@ -1,704 +1,312 @@
-"""Post-processing utilities for multi-class segmentation masks.
+"""针对四分类掩膜的后处理脚本。
 
-This script implements a configurable post-processing pipeline that operates on
-RGB pseudo-colour segmentation masks where the colour palette is fixed to:
-
-    0 -> background : black  (0,   0,   0)
-    1 -> green      : green  (0, 255,   0)
-    2 -> yellow     : yellow (255,255, 0)
-    3 -> red        : red    (255,  0,  0)
-
-The post-processing operations are inspired by common clean-up steps for
-cellular ring segmentations and include majority filtering around boundaries,
-per-class morphological clean-up, and topology constraints between classes.
-
-The command line interface supports batched processing, optional metric
-evaluation against ground-truth labels, configuration via JSON/YAML files, and
-parallel execution.
+该脚本读取彩色 PNG 掩膜并转换为 0–3 的整型标签，按照用户给定的流程
+执行多数平滑、连通域重赋值、形态学开运算和面积守恒的黄绿边界抹平，最
+终输出经过尺寸规整的标签图。脚本既支持单张图片，也支持整个文件夹的批
+量处理。
 """
 
 from __future__ import annotations
 
 import argparse
-import json
-import sys
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Iterable, Tuple
 
 import cv2
 import numpy as np
 
-try:  # Optional dependency for YAML configs.
-    import yaml  # type: ignore
-except ImportError:  # pragma: no cover - yaml is optional.
-    yaml = None
 
-
-Palette = Dict[int, Tuple[int, int, int]]
-
-
-DEFAULT_PALETTE: Palette = {
-    0: (0, 0, 0),
-    1: (0, 255, 0),
-    2: (255, 255, 0),
-    3: (255, 0, 0),
+# --------------------------- 基础配色与常量定义 ---------------------------
+# 颜色到标签的映射，使用 BGR 顺序以匹配 OpenCV 的默认读取方式。
+COLOR_TO_LABEL = {
+    (0, 0, 0): 0,  # 背景（黑）
+    (0, 255, 0): 1,  # 绿色
+    (0, 255, 255): 2,  # 黄色（BGR）
+    (0, 0, 255): 3,  # 红色
 }
+LABEL_PRIORITY = [0, 1, 2, 3]
+TARGET_SIZE: Tuple[int, int] = (1240, 1240)
 
 
-CLASS_NAMES = {0: "background", 1: "green", 2: "yellow", 3: "red"}
+# --------------------------- 通用工具函数 ---------------------------
 
+def load_label_image(path: Path) -> np.ndarray:
+    """读取 PNG 掩膜并转换为单通道标签图。"""
 
-@dataclass
-class RelationConfig:
-    """Configuration block for inter-class constraints."""
+    image = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if image is None:
+        raise FileNotFoundError(f"无法读取图片: {path}")
 
-    yellow_include_red: bool = True
-    red_margin: int = 5
-    add_green_band: bool = True
-
-
-@dataclass
-class ProcessingConfig:
-    """Aggregated post-processing hyper-parameters."""
-
-    r_open: Optional[int] = None
-    r_close: Optional[int] = None
-    r_band: Optional[int] = None
-    area_fracs: Dict[int, float] = field(
-        default_factory=lambda: {1: 0.001, 2: 0.001, 3: 0.004}
-    )
-    hole_fracs: Dict[int, float] = field(
-        default_factory=lambda: {1: 0.004, 2: 0.006, 3: 0.003}
-    )
-    min_area_px: Dict[int, int] = field(default_factory=dict)
-    max_hole_px: Dict[int, int] = field(default_factory=dict)
-    class_priority: List[int] = field(default_factory=lambda: [3, 2, 1, 0])
-    enable_mode_filter: bool = True
-    mode_kernel: int = 5
-    enforce_relations: RelationConfig = field(default_factory=RelationConfig)
-
-
-# ---------------------------------------------------------------------------
-# Utility helpers
-
-
-def parse_size(size_str: str) -> Tuple[int, int]:
-    """Parse size specification formatted as "<width>x<height>"."""
-
-    try:
-        width_str, height_str = size_str.lower().split("x")
-        width, height = int(width_str), int(height_str)
-    except ValueError as exc:  # pragma: no cover - user error path.
-        raise argparse.ArgumentTypeError(
-            f"--target_size must be formatted as <width>x<height>, got '{size_str}'."
-        ) from exc
-    if width <= 0 or height <= 0:  # pragma: no cover - user error path.
-        raise argparse.ArgumentTypeError("Target width/height must be positive.")
-    return width, height
-
-
-def ensure_dir(path: Path) -> None:
-    """Create directory if it does not already exist."""
-
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def load_config(path: Optional[Path]) -> Dict[str, object]:
-    """Load configuration overrides from JSON or YAML file."""
-
-    if path is None:
-        return {}
-    if not path.exists():  # pragma: no cover - user error path.
-        raise FileNotFoundError(f"Config file not found: {path}")
-    if path.suffix.lower() in {".json"}:
-        return json.loads(path.read_text())
-    if path.suffix.lower() in {".yml", ".yaml"}:
-        if yaml is None:  # pragma: no cover - missing optional dependency.
-            raise RuntimeError("PyYAML is required to parse YAML config files.")
-        return yaml.safe_load(path.read_text())
-    raise ValueError(
-        f"Unsupported config extension '{path.suffix}'. Use JSON or YAML."
-    )
-
-
-def merge_config(overrides: Dict[str, object]) -> ProcessingConfig:
-    """Merge user-provided overrides with the default configuration."""
-
-    cfg = ProcessingConfig()
-    if not overrides:
-        return cfg
-
-    for attr in ("r_open", "r_close", "r_band", "enable_mode_filter", "mode_kernel"):
-        if attr in overrides:
-            setattr(cfg, attr, overrides[attr])
-
-    if "class_priority" in overrides:
-        cfg.class_priority = list(overrides["class_priority"])  # type: ignore
-
-    if "area_fracs" in overrides:
-        cfg.area_fracs.update({int(k): float(v) for k, v in overrides["area_fracs"].items()})
-
-    if "hole_fracs" in overrides:
-        cfg.hole_fracs.update({int(k): float(v) for k, v in overrides["hole_fracs"].items()})
-
-    if "min_area_px" in overrides:
-        cfg.min_area_px.update({int(k): int(v) for k, v in overrides["min_area_px"].items()})
-
-    if "max_hole_px" in overrides:
-        cfg.max_hole_px.update({int(k): int(v) for k, v in overrides["max_hole_px"].items()})
-
-    if "enforce_relations" in overrides:
-        rel_overrides = overrides["enforce_relations"]
-        if isinstance(rel_overrides, dict):
-            rel = cfg.enforce_relations
-            if "yellow_include_red" in rel_overrides:
-                rel.yellow_include_red = bool(rel_overrides["yellow_include_red"])
-            if "red_margin" in rel_overrides:
-                rel.red_margin = int(rel_overrides["red_margin"])
-            if "add_green_band" in rel_overrides:
-                rel.add_green_band = bool(rel_overrides["add_green_band"])
-
-    return cfg
-
-
-def rgb_to_labels(rgb: np.ndarray) -> np.ndarray:
-    """Convert RGB mask to label indices."""
-
-    mapping = {
-        (0, 0, 0): 0,
-        (0, 255, 0): 1,
-        (255, 255, 0): 2,
-        (255, 0, 0): 3,
-    }
-    flat_rgb = rgb.reshape(-1, 3)
-    labels = np.zeros(flat_rgb.shape[0], dtype=np.uint8)
-    for colour, label in mapping.items():
-        mask = np.all(flat_rgb == colour, axis=1)
+    h, w, _ = image.shape
+    labels = np.zeros((h, w), dtype=np.uint8)
+    matched = np.zeros((h, w), dtype=bool)
+    # 逐像素匹配颜色到标签，若出现未知颜色则报错提示。
+    for color, label in COLOR_TO_LABEL.items():
+        mask = np.all(image == np.array(color, dtype=np.uint8), axis=-1)
         labels[mask] = label
-    return labels.reshape(rgb.shape[:2])
+        matched |= mask
+    if not np.all(matched):
+        raise ValueError(f"输入图片存在未知颜色: {path}")
+    return labels
 
 
-def labels_to_rgb(labels: np.ndarray, palette: Palette = DEFAULT_PALETTE) -> np.ndarray:
-    """Convert label map back to RGB image."""
+def save_label_image(path: Path, labels: np.ndarray) -> None:
+    """按照标签优先级生成单通道图像并保存。"""
 
     h, w = labels.shape
-    rgb = np.zeros((h, w, 3), dtype=np.uint8)
-    for label, colour in palette.items():
-        rgb[labels == label] = colour
-    return rgb
+    output = np.zeros((h, w), dtype=np.uint8)
+    for label in LABEL_PRIORITY:
+        output[labels == label] = label
+    resized = cv2.resize(output, TARGET_SIZE, interpolation=cv2.INTER_NEAREST)
+    cv2.imwrite(str(path), resized)
 
 
-def resize_labels(labels: np.ndarray, size: Tuple[int, int]) -> np.ndarray:
-    """Resize label map using nearest-neighbour interpolation."""
+def connected_components(mask: np.ndarray) -> Tuple[int, np.ndarray]:
+    """对二值掩膜执行 8 邻域连通域分割。"""
 
-    width, height = size
-    resized = cv2.resize(
-        labels,
-        (width, height),
-        interpolation=cv2.INTER_NEAREST,
-    )
-    return resized
+    num, comp = cv2.connectedComponents(mask.astype(np.uint8), connectivity=8)
+    return num, comp
 
 
-def compute_kernel(radius: int) -> Optional[np.ndarray]:
-    """Create an elliptical structuring element for the given radius."""
+def boundary_band(labels: np.ndarray, kernel_size: int = 5) -> np.ndarray:
+    """利用形态学梯度计算所有类别边界组成的窄带。"""
 
-    radius = int(radius)
-    if radius <= 0:
-        return None
-    size = 2 * radius + 1
-    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
-
-
-def morphological_gradient(label_map: np.ndarray) -> np.ndarray:
-    """Compute boundary mask using morphological gradient."""
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    dilated = cv2.dilate(label_map, kernel)
-    eroded = cv2.erode(label_map, kernel)
-    gradient = dilated != eroded
-    return gradient.astype(np.uint8)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+    band = np.zeros_like(labels, dtype=bool)
+    for value in range(4):
+        mask = (labels == value).astype(np.uint8)
+        dilated = cv2.dilate(mask, kernel)
+        eroded = cv2.erode(mask, kernel)
+        band |= dilated != eroded
+    return band
 
 
-def mode_filter_on_boundaries(
-    labels: np.ndarray,
-    kernel_size: int,
-    priority: Sequence[int],
-) -> np.ndarray:
-    """Apply majority filter within boundary band defined by morphological gradient."""
+def majority_filter_on_band(labels: np.ndarray, band: np.ndarray, kernel_size: int = 5) -> np.ndarray:
+    """在边界窄带上执行多数平滑。"""
 
-    boundary = morphological_gradient(labels)
-    boundary = cv2.dilate(boundary, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
-    if kernel_size <= 1:
+    kernel = np.ones((kernel_size, kernel_size), dtype=np.float32)
+    counts = []
+    for value in range(4):
+        mask = (labels == value).astype(np.float32)
+        count = cv2.filter2D(mask, -1, kernel, borderType=cv2.BORDER_REPLICATE)
+        counts.append(count)
+    stacked = np.stack(counts, axis=-1)
+    modes = np.argmax(stacked, axis=-1).astype(np.uint8)
+    smoothed = labels.copy()
+    smoothed[band] = modes[band]
+    return smoothed
+
+
+def dilate_red(labels: np.ndarray) -> np.ndarray:
+    """对红色区域执行 1 像素膨胀。"""
+
+    red_mask = labels == 3
+    if not np.any(red_mask):
         return labels
-
-    kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
-    class_maps = []
-    for cls in range(len(DEFAULT_PALETTE)):
-        binary = (labels == cls).astype(np.uint8)
-        counts = cv2.filter2D(binary, -1, kernel, borderType=cv2.BORDER_REFLECT)
-        class_maps.append(counts)
-    stacked = np.stack(class_maps, axis=0)
-
-    # Tie-breaking by priority: higher priority classes come first.
-    priority_indices = {cls: idx for idx, cls in enumerate(priority)}
-    tie_breaker = np.zeros_like(stacked, dtype=np.float32)
-    for cls in range(stacked.shape[0]):
-        # Lower index (higher priority) should win; subtract small epsilon.
-        tie_breaker[cls] = -priority_indices.get(cls, len(priority)) * 1e-3
-    stacked = stacked.astype(np.float32) + tie_breaker
-
-    filtered = stacked.argmax(axis=0).astype(labels.dtype)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    dilated = cv2.dilate(red_mask.astype(np.uint8), kernel)
     result = labels.copy()
-    result[boundary.astype(bool)] = filtered[boundary.astype(bool)]
+    result[dilated.astype(bool)] = 3
     return result
 
 
-def remove_small_components(mask: np.ndarray, min_area: int) -> np.ndarray:
-    """Remove connected components below the specified area threshold."""
+def replace_component_with_neighbors(labels: np.ndarray, component_mask: np.ndarray, value: int) -> None:
+    """将指定连通域替换为其相邻像素中最常见的颜色。"""
 
-    if min_area <= 0:
-        return mask
-
-    num_labels, label_map, stats, _ = cv2.connectedComponentsWithStats(
-        mask.astype(np.uint8), connectivity=8
-    )
-    to_remove = []
-    for idx in range(1, num_labels):
-        area = stats[idx, cv2.CC_STAT_AREA]
-        if area < min_area:
-            to_remove.append(idx)
-    if not to_remove:
-        return mask
-    output = mask.copy()
-    for idx in to_remove:
-        output[label_map == idx] = False
-    return output
-
-
-def fill_small_holes(mask: np.ndarray, max_area: int) -> np.ndarray:
-    """Fill holes within mask whose area is below threshold."""
-
-    if max_area <= 0:
-        return mask
-
-    inv = (~mask).astype(np.uint8)
-    num_labels, label_map, stats, _ = cv2.connectedComponentsWithStats(
-        inv, connectivity=8
-    )
-    h, w = mask.shape
-    output = mask.copy()
-    for idx in range(1, num_labels):
-        area = stats[idx, cv2.CC_STAT_AREA]
-        x = stats[idx, cv2.CC_STAT_LEFT]
-        y = stats[idx, cv2.CC_STAT_TOP]
-        width = stats[idx, cv2.CC_STAT_WIDTH]
-        height = stats[idx, cv2.CC_STAT_HEIGHT]
-        touches_border = x == 0 or y == 0 or (x + width) >= w or (y + height) >= h
-        if not touches_border and area <= max_area:
-            output[label_map == idx] = True
-    return output
-
-
-def apply_morphology(mask: np.ndarray, r_open: int, r_close: int) -> np.ndarray:
-    """Apply opening followed by closing with given radii."""
-
-    result = mask.astype(np.uint8)
-    if r_open > 0:
-        kernel_open = compute_kernel(r_open)
-        if kernel_open is not None:
-            result = cv2.morphologyEx(result, cv2.MORPH_OPEN, kernel_open)
-    if r_close > 0:
-        kernel_close = compute_kernel(r_close)
-        if kernel_close is not None:
-            result = cv2.morphologyEx(result, cv2.MORPH_CLOSE, kernel_close)
-    return result.astype(bool)
-
-
-def enforce_relations(
-    green: np.ndarray,
-    yellow: np.ndarray,
-    red: np.ndarray,
-    cfg: ProcessingConfig,
-    min_dim: int,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Apply topology constraints between class layers."""
-
-    rel = cfg.enforce_relations
-    if rel.yellow_include_red:
-        margin = max(1, int(rel.red_margin))
-        kernel = compute_kernel(margin)
-        if kernel is None:
-            kernel = compute_kernel(1)
-        if kernel is not None:
-            red_dilated = cv2.dilate(red.astype(np.uint8), kernel).astype(bool)
-            yellow = np.logical_or(yellow, red_dilated)
-        red = np.logical_and(red, yellow)
-
-    green = np.logical_and(green, np.logical_not(yellow))
-
-    if rel.add_green_band:
-        radius = cfg.r_band if cfg.r_band is not None else max(1, round(0.01 * min_dim))
-        kernel = compute_kernel(radius)
-        if kernel is not None:
-            band = cv2.dilate(yellow.astype(np.uint8), kernel).astype(bool)
-            band = np.logical_and(band, np.logical_not(yellow))
-            green = np.logical_or(green, band)
-
-    return green, yellow, red
-
-
-def compose_labels(
-    green: np.ndarray, yellow: np.ndarray, red: np.ndarray, priority: Sequence[int]
-) -> np.ndarray:
-    """Compose class layers into single label map according to priority."""
-
-    h, w = green.shape
-    labels = np.zeros((h, w), dtype=np.uint8)
-    masks = {1: green, 2: yellow, 3: red}
-    for cls in priority:
-        if cls == 0:
-            continue
-        mask = masks.get(cls)
-        if mask is None:
-            continue
-        labels[mask] = cls
-    return labels
-
-
-def auto_radius(base: Optional[int], scale: float, min_dim: int) -> int:
-    """Return radius using explicit value or scale * min_dim."""
-
-    if base is not None:
-        return int(base)
-    radius = int(round(scale * min_dim))
-    return max(1, radius)
-
-
-def process_label_map(
-    label_map: np.ndarray,
-    cfg: ProcessingConfig,
-) -> np.ndarray:
-    """Apply the full post-processing pipeline to a label map."""
-
-    h, w = label_map.shape
-    min_dim = min(h, w)
-
-    labels = label_map.copy()
-    if cfg.enable_mode_filter:
-        kernel = max(1, int(cfg.mode_kernel))
-        if kernel % 2 == 0:
-            kernel += 1
-        labels = mode_filter_on_boundaries(labels, kernel, cfg.class_priority)
-
-    r_open = auto_radius(cfg.r_open, 0.004, min_dim)
-    r_close = auto_radius(cfg.r_close, 0.012, min_dim)
-
-    class_masks = {}
-    for cls in (1, 2, 3):
-        mask = labels == cls
-        mask = apply_morphology(mask, r_open, r_close)
-        min_area = cfg.min_area_px.get(cls)
-        if min_area is None:
-            min_area = int(round(cfg.area_fracs.get(cls, 0.0) * h * w))
-        mask = remove_small_components(mask, min_area)
-
-        max_hole = cfg.max_hole_px.get(cls)
-        if max_hole is None:
-            max_hole = int(round(cfg.hole_fracs.get(cls, 0.0) * h * w))
-        mask = fill_small_holes(mask, max_hole)
-
-        class_masks[cls] = mask
-
-    green, yellow, red = (
-        class_masks.get(1, np.zeros_like(labels, dtype=bool)),
-        class_masks.get(2, np.zeros_like(labels, dtype=bool)),
-        class_masks.get(3, np.zeros_like(labels, dtype=bool)),
-    )
-
-    green, yellow, red = enforce_relations(green, yellow, red, cfg, min_dim)
-    labels = compose_labels(green, yellow, red, cfg.class_priority)
-
-    return labels
-
-
-# ---------------------------------------------------------------------------
-# Evaluation helpers
-
-
-def safe_read_image(path: Path) -> np.ndarray:
-    """Read image from disk ensuring RGB channel order."""
-
-    img = cv2.imread(str(path), cv2.IMREAD_COLOR)
-    if img is None:  # pragma: no cover - user error path.
-        raise FileNotFoundError(f"Failed to read image: {path}")
-    return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-
-def find_matching_label(pred_path: Path, label_dir: Path) -> Optional[Path]:
-    """Locate ground-truth label file corresponding to a prediction."""
-
-    candidates = [pred_path.name]
-    stem = pred_path.stem
-    if "Prediction" in stem:
-        candidates.append(stem.replace("Prediction", "Label") + pred_path.suffix)
-    if stem.endswith("_Pred"):
-        candidates.append(stem[:-5] + "_Label" + pred_path.suffix)
-    for name in candidates:
-        candidate_path = label_dir / name
-        if candidate_path.exists():
-            return candidate_path
-    return None
-
-
-def compute_metrics(pred: np.ndarray, gt: np.ndarray) -> Dict[int, Tuple[float, float]]:
-    """Compute IoU and Dice score per class."""
-
-    metrics: Dict[int, Tuple[float, float]] = {}
-    for cls in (1, 2, 3):
-        pred_mask = pred == cls
-        gt_mask = gt == cls
-        intersection = np.logical_and(pred_mask, gt_mask).sum()
-        union = np.logical_or(pred_mask, gt_mask).sum()
-        pred_area = pred_mask.sum()
-        gt_area = gt_mask.sum()
-        if union == 0:
-            iou = 1.0 if pred_area == gt_area == 0 else 0.0
-        else:
-            iou = intersection / union
-        denom = pred_area + gt_area
-        if denom == 0:
-            dice = 1.0
-        else:
-            dice = 2 * intersection / denom
-        metrics[cls] = (iou, dice)
-    return metrics
-
-
-def summarize_metrics(metrics_list: List[Dict[int, Tuple[float, float]]]) -> None:
-    """Print aggregated IoU and Dice scores."""
-
-    if not metrics_list:
+    if not np.any(component_mask):
         return
-    print("\nEvaluation metrics (IoU / Dice):")
-    header = ["Class", "IoU", "Dice"]
-    print("{:<12s} {:>10s} {:>10s}".format(*header))
-    sums = {cls: np.zeros(2, dtype=float) for cls in (1, 2, 3)}
-    for metrics in metrics_list:
-        for cls, values in metrics.items():
-            sums[cls] += values
-    for cls in (1, 2, 3):
-        mean_values = sums[cls] / len(metrics_list)
-        print(
-            f"{CLASS_NAMES[cls]:<12s} {mean_values[0]:>10.4f} {mean_values[1]:>10.4f}"
-        )
-    means = np.array(list(sums.values())) / len(metrics_list)
-    foreground_mean_iou = means[:, 0].mean()
-    foreground_mean_dice = means[:, 1].mean()
-    print(f"Foreground mean IoU : {foreground_mean_iou:.4f}")
-    print(f"Foreground mean Dice: {foreground_mean_dice:.4f}\n")
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    border = cv2.dilate(component_mask.astype(np.uint8), kernel).astype(bool)
+    border &= ~component_mask
+    if not np.any(border):
+        labels[component_mask] = 0
+        return
+    neighbors = labels[border]
+    counts = np.bincount(neighbors, minlength=4)
+    counts[value] = 0
+    new_value = int(np.argmax(counts))
+    labels[component_mask] = new_value
 
 
-# ---------------------------------------------------------------------------
-# Processing entry points
+def clean_green_components(labels: np.ndarray) -> None:
+    """删除面积不足的绿色连通域，并依邻域颜色填补。"""
+
+    green_mask = labels == 1
+    total = int(np.sum(green_mask))
+    if total == 0:
+        return
+    threshold = max(int(total * 0.1), 1)
+    num, comp = connected_components(green_mask)
+    for idx in range(1, num):
+        component_mask = comp == idx
+        if int(np.sum(component_mask)) < threshold:
+            replace_component_with_neighbors(labels, component_mask, 1)
 
 
-def process_file(
-    path: Path,
-    out_dir: Path,
-    cfg: ProcessingConfig,
-    target_size: Optional[Tuple[int, int]],
-) -> Tuple[Path, Path, Dict[str, object]]:
-    """Process a single RGB mask and save the cleaned result."""
+def keep_largest_component(labels: np.ndarray, value: int) -> None:
+    """保留指定颜色的最大连通域，其余区域依邻域颜色重赋值。"""
 
-    rgb = safe_read_image(path)
-    labels = rgb_to_labels(rgb)
-    if target_size is not None:
-        labels = resize_labels(labels, target_size)
-
-    processed = process_label_map(labels, cfg)
-    rgb_out = labels_to_rgb(processed)
-
-    ensure_dir(out_dir)
-    out_path = out_dir / path.name
-    cv2.imwrite(str(out_path), cv2.cvtColor(rgb_out, cv2.COLOR_RGB2BGR))
-
-    stats = {cls: int((processed == cls).sum()) for cls in (0, 1, 2, 3)}
-    return path, out_path, stats
-
-
-def run_self_test(cfg: ProcessingConfig) -> None:
-    """Run a simple self-test on a synthetic label map."""
-
-    print("Running self-test (no input directory provided)...")
-    h, w = 128, 128
-    labels = np.zeros((h, w), dtype=np.uint8)
-    cv2.circle(labels, (w // 2, h // 2), 50, 1, thickness=10)
-    cv2.circle(labels, (w // 2, h // 2), 30, 2, thickness=8)
-    cv2.circle(labels, (w // 2, h // 2), 20, 3, thickness=-1)
-
-    processed = process_label_map(labels, cfg)
-    unique, counts = np.unique(processed, return_counts=True)
-    summary = dict(zip(unique.tolist(), counts.tolist()))
-    print("Self-test completed. Class pixel counts:", summary)
-
-
-def gather_files(in_dir: Path, pattern: str) -> List[Path]:
-    """Collect input files matching the glob pattern."""
-
-    return sorted(in_dir.rglob(pattern))
-
-
-def postprocess_directory(
-    in_dir: Path,
-    out_dir: Path,
-    pattern: str,
-    cfg: ProcessingConfig,
-    target_size: Optional[Tuple[int, int]],
-    workers: int,
-) -> List[Tuple[Path, Path, Dict[str, object]]]:
-    """Process all matching files in a directory using a thread pool."""
-
-    files = gather_files(in_dir, pattern)
-    if not files:
-        print(f"No files matched pattern '{pattern}' under {in_dir}.")
-        return []
-
-    start_time = time.time()
-    results: List[Tuple[Path, Path, Dict[str, object]]] = []
-    workers = max(1, workers)
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(process_file, path, out_dir, cfg, target_size): path
-            for path in files
-        }
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-                results.append(result)
-            except Exception as exc:  # pragma: no cover - propagated to caller.
-                print(f"Error processing {futures[future]}: {exc}")
-                raise
-
-    elapsed = time.time() - start_time
-    print(
-        f"Processed {len(results)} file(s) in {elapsed:.2f} s. Output saved to {out_dir}."
-    )
-    return results
-
-
-def evaluate_predictions(
-    results: List[Tuple[Path, Path, Dict[str, object]]],
-    label_dir: Path,
-) -> None:
-    """Compute and print evaluation metrics against ground-truth labels."""
-
-    metrics: List[Dict[int, Tuple[float, float]]] = []
-    for pred_path, processed_path, _ in results:
-        label_path = find_matching_label(pred_path, label_dir)
-        if label_path is None:
-            print(f"Ground-truth label not found for {pred_path.name}, skipping.")
+    mask = labels == value
+    if not np.any(mask):
+        return
+    num, comp = connected_components(mask)
+    areas = [np.sum(comp == idx) for idx in range(1, num)]
+    if not areas:
+        return
+    largest_idx = int(np.argmax(areas)) + 1
+    for idx in range(1, num):
+        if idx == largest_idx:
             continue
-        gt_rgb = safe_read_image(label_path)
-        gt_labels = rgb_to_labels(gt_rgb)
-
-        processed_rgb = safe_read_image(processed_path)
-        processed_labels = rgb_to_labels(processed_rgb)
-
-        if processed_labels.shape != gt_labels.shape:
-            processed_labels = resize_labels(
-                processed_labels, (gt_labels.shape[1], gt_labels.shape[0])
-            )
-
-        metrics.append(compute_metrics(processed_labels, gt_labels))
-
-    summarize_metrics(metrics)
+        component_mask = comp == idx
+        replace_component_with_neighbors(labels, component_mask, value)
 
 
-def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
-    """Create the command-line argument parser."""
+def fill_removed_regions(labels: np.ndarray, removed_mask: np.ndarray, target_value: int) -> None:
+    """将形态学开运算移除的像素填充为最近的其他颜色。"""
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--in_dir",
-        type=Path,
-        default=None,
-        help="Directory with predicted RGB masks. If omitted, runs a self-test.",
+    if not np.any(removed_mask):
+        return
+    binary = (labels == target_value).astype(np.uint8)
+    if np.all(binary == 1):
+        labels[removed_mask] = target_value
+        return
+    dist, indices = cv2.distanceTransformWithLabels(
+        binary, cv2.DIST_L2, 5, labelType=cv2.DIST_LABEL_PIXEL
     )
-    parser.add_argument(
-        "--out_dir",
-        type=Path,
-        default=None,
-        help="Directory to store processed masks.",
+    zero_coords = np.column_stack(np.where(binary == 0))
+    target_indices = indices[removed_mask] - 1
+    target_indices = np.clip(target_indices, 0, len(zero_coords) - 1)
+    nearest_coords = zero_coords[target_indices]
+    new_values = labels[nearest_coords[:, 0], nearest_coords[:, 1]]
+    labels[removed_mask] = new_values
+
+
+def opening_and_refill(labels: np.ndarray, value: int, radius: int = 4) -> None:
+    """对指定颜色执行开运算并填补空缺。"""
+
+    mask = labels == value
+    if not np.any(mask):
+        return
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1))
+    opened = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_OPEN, kernel).astype(bool)
+    removed = mask & ~opened
+    labels[mask] = value
+    fill_removed_regions(labels, removed, value)
+
+
+def area_preserving_rethreshold(labels: np.ndarray) -> None:
+    """在黄绿窄带内执行面积守恒的高斯重阈值。"""
+
+    yellow_mask = labels == 2
+    green_mask = labels == 1
+    movable = yellow_mask | green_mask
+    if not np.any(movable):
+        return
+
+    kernel_band = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
+    dilated_y = cv2.dilate(yellow_mask.astype(np.uint8), kernel_band).astype(bool)
+    dilated_g = cv2.dilate(green_mask.astype(np.uint8), kernel_band).astype(bool)
+    band = movable & (dilated_y & dilated_g)
+    if not np.any(band):
+        band = movable
+
+    yellow_fixed = yellow_mask & ~band
+    yellow_to_allocate = int(np.sum(yellow_mask)) - int(np.sum(yellow_fixed))
+    if yellow_to_allocate <= 0:
+        labels[band] = 1
+        labels[yellow_fixed] = 2
+        return
+    if yellow_to_allocate >= int(np.sum(band)):
+        labels[band] = 2
+        return
+
+    blur = cv2.GaussianBlur(
+        yellow_mask.astype(np.float32),
+        (0, 0),
+        sigmaX=7.0,
+        sigmaY=7.0,
+        borderType=cv2.BORDER_REPLICATE,
     )
-    parser.add_argument(
-        "--pattern",
-        type=str,
-        default="*_Prediction.png",
-        help="Glob pattern to match prediction files (default: *_Prediction.png).",
-    )
-    parser.add_argument(
-        "--label_dir",
-        type=Path,
-        default=None,
-        help="Optional directory with ground-truth labels for evaluation.",
-    )
-    parser.add_argument(
-        "--workers", type=int, default=8, help="Number of worker threads (default: 8)."
-    )
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=None,
-        help="JSON or YAML configuration file to override hyper-parameters.",
-    )
-    parser.add_argument(
-        "--target_size",
-        type=parse_size,
-        default=None,
-        help="Force resize to WIDTHxHEIGHT using nearest-neighbour interpolation.",
-    )
-    return parser.parse_args(argv)
+    values = blur[band]
+    flat_band_indices = np.flatnonzero(band)
+    selected = np.zeros(len(flat_band_indices), dtype=bool)
+    partition_index = len(values) - yellow_to_allocate
+    threshold_value = np.partition(values, partition_index)[partition_index]
+    larger = values > threshold_value
+    selected[larger] = True
+    remaining = yellow_to_allocate - int(np.sum(larger))
+    if remaining > 0:
+        equals = np.where(values == threshold_value)[0]
+        chosen = equals[:remaining]
+        selected[chosen] = True
+    new_yellow_mask = np.zeros_like(movable, dtype=bool)
+    new_yellow_mask.flat[flat_band_indices[selected]] = True
+
+    labels[band] = 1
+    labels[new_yellow_mask] = 2
+    labels[yellow_fixed] = 2
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    args = parse_args(argv)
+def process_label(labels: np.ndarray) -> np.ndarray:
+    """对单张标签图执行完整的后处理流程。"""
 
-    overrides = load_config(args.config)
-    cfg = merge_config(overrides)
-
-    if args.in_dir is None or (args.in_dir.exists() and not any(args.in_dir.iterdir())):
-        run_self_test(cfg)
-        return 0
-
-    if not args.in_dir.exists():  # pragma: no cover - user error path.
-        raise FileNotFoundError(f"Input directory does not exist: {args.in_dir}")
-
-    if args.out_dir is None:
-        raise ValueError("--out_dir must be specified when processing real data.")
-
-    results = postprocess_directory(
-        args.in_dir,
-        args.out_dir,
-        args.pattern,
-        cfg,
-        args.target_size,
-        args.workers,
-    )
-
-    if args.label_dir is not None and results:
-        if not args.label_dir.exists():  # pragma: no cover - user error path.
-            raise FileNotFoundError(f"Label directory does not exist: {args.label_dir}")
-        evaluate_predictions(results, args.label_dir)
-
-    total_pixels = sum(sum(stats.values()) for _, _, stats in results)
-    print(f"Processed total pixels: {total_pixels}")
-    return 0
+    band = boundary_band(labels)
+    labels = majority_filter_on_band(labels, band)
+    labels = dilate_red(labels)
+    clean_green_components(labels)
+    keep_largest_component(labels, 3)
+    keep_largest_component(labels, 0)
+    opening_and_refill(labels, 1, radius=4)
+    opening_and_refill(labels, 2, radius=4)
+    area_preserving_rethreshold(labels)
+    return labels
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI entry point.
-    sys.exit(main())
+def process_file(input_path: Path, output_path: Path) -> None:
+    """处理单个文件并写入结果。"""
 
+    labels = load_label_image(input_path)
+    processed = process_label(labels)
+    save_label_image(output_path, processed)
+
+
+def gather_images(path: Path) -> Iterable[Path]:
+    """收集需要处理的 PNG 图片路径。"""
+
+    if path.is_file():
+        return [path]
+    return sorted(p for p in path.glob("*.png"))
+
+
+def parse_args() -> argparse.Namespace:
+    """解析命令行参数。"""
+
+    parser = argparse.ArgumentParser(description="对分割掩膜执行后处理")
+    parser.add_argument("input", type=Path, help="输入 PNG 文件或包含 PNG 的文件夹")
+    parser.add_argument("output", type=Path, help="输出文件或目录")
+    return parser.parse_args()
+
+
+def main() -> None:
+    """脚本入口：根据输入类型批量或单张处理并保存。"""
+
+    args = parse_args()
+    inputs = list(gather_images(args.input))
+    if not inputs:
+        raise FileNotFoundError("未找到任何 PNG 输入文件")
+
+    treat_as_dir = args.output.is_dir() or args.output.suffix == "" or len(inputs) > 1
+    if treat_as_dir:
+        args.output.mkdir(parents=True, exist_ok=True)
+        for path in inputs:
+            output_path = args.output / path.name
+            process_file(path, output_path)
+    else:
+        if len(inputs) > 1:
+            raise ValueError("当输入为多个文件时，输出应为目录")
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        process_file(inputs[0], args.output)
+
+
+if __name__ == "__main__":
+    main()
